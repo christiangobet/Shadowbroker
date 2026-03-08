@@ -14,10 +14,10 @@ Built with **Next.js**, **MapLibre GL**, **FastAPI**, and **Python**, it's desig
 
 ---
 
-## 🔥 The Fantasy
+## Interesting Use Cases
 
 * Track private jets of billionaires
-* Monitor satellites passing overhead
+* Monitor satellites passing overhead (finicky right now)
 * Watch naval traffic worldwide
 * Detect GPS jamming zones
 * Follow earthquakes and disasters in real time
