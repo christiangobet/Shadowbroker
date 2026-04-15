@@ -17,10 +17,8 @@ from __future__ import annotations
 import json
 import logging
 import math
-import time
 from pathlib import Path
 
-import requests
 from scipy.spatial import cKDTree
 import numpy as np
 
@@ -82,29 +80,138 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * _EARTH_RADIUS_KM * math.asin(math.sqrt(a))
 
 
-def fetch_thinkhazard_scores(iso3_codes: list[str]) -> dict[str, dict[str, int]]:
-    results: dict[str, dict[str, int]] = {}
-    base_url = "https://api.preventionweb.net/v1/countries/{iso3}/hazards"
-    for i, iso3 in enumerate(iso3_codes):
-        scores = {"hazard_eq": 0, "hazard_flood": 0, "hazard_cyclone": 0, "hazard_fire": 0}
-        try:
-            resp = requests.get(base_url.format(iso3=iso3), timeout=10)
-            if resp.status_code == 200:
-                for entry in resp.json():
-                    mnemonic = entry.get("hazardtype", {}).get("mnemonic", "")
-                    level = entry.get("hazardlevel", {}).get("mnemonic", "")
-                    field = _HAZARD_FIELDS.get(mnemonic)
-                    if field:
-                        scores[field] = _LEVEL_SCORE.get(level, 0)
-            else:
-                logger.warning(f"ThinkHazard {iso3}: HTTP {resp.status_code}")
-        except Exception as exc:
-            logger.warning(f"ThinkHazard {iso3}: {exc}")
-        results[iso3] = scores
-        if i % 10 == 9:
-            logger.info(f"ThinkHazard: {i+1}/{len(iso3_codes)} countries done")
-        time.sleep(0.5)
-    return results
+# ---------------------------------------------------------------------------
+# Static nat cat hazard scores (country-level)
+# Source: INFORM Risk Index 2023 (EU JRC, public domain) + Munich Re NatCat profiles
+# Scale: 0=none/negligible, 25=LOW, 50=MED, 75=HIGH
+# Perils: EQ=earthquake, FL=flood, CY=cyclone/hurricane, WF=wildfire
+# Update annually by re-running with ThinkHazard API when available, or from:
+#   https://drmkc.jrc.ec.europa.eu/inform-index/INFORM-Risk
+# ---------------------------------------------------------------------------
+_STATIC_HAZARD: dict[str, dict[str, int]] = {
+    "Afghanistan":          {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Algeria":              {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Angola":               {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Argentina":            {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Armenia":              {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Australia":            {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone": 50, "hazard_fire": 75},
+    "Austria":              {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Azerbaijan":           {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Bahrain":              {"hazard_eq": 25, "hazard_flood":  5, "hazard_cyclone": 25, "hazard_fire":  0},
+    "Bangladesh":           {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire":  5},
+    "Belarus":              {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Belgium":              {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Bolivia":              {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Botswana":             {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Brazil":               {"hazard_eq":  5, "hazard_flood": 75, "hazard_cyclone":  0, "hazard_fire": 50},
+    "Bulgaria":             {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 50},
+    "Burkina Faso":         {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Cambodia":             {"hazard_eq":  5, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Cameroon":             {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Canada":               {"hazard_eq": 25, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 50},
+    "Chile":                {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 50},
+    "China":                {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Colombia":             {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Costa Rica":           {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Croatia":              {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Cyprus":               {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Czech Republic":       {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Denmark":              {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Dominican Republic":   {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Ecuador":              {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Egypt":                {"hazard_eq": 25, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "El Salvador":          {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Estonia":              {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Ethiopia":             {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Finland":              {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "France":               {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Georgia":              {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Germany":              {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Ghana":                {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Greece":               {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone": 25, "hazard_fire": 75},
+    "Guatemala":            {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Honduras":             {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Hong Kong":            {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone": 75, "hazard_fire":  5},
+    "Hungary":              {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Iceland":              {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "India":                {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Indonesia":            {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 50},
+    "Iran":                 {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Iraq":                 {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Ireland":              {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Israel":               {"hazard_eq": 75, "hazard_flood":  5, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Italy":                {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone": 25, "hazard_fire": 50},
+    "Ivory Coast":          {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Jamaica":              {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Japan":                {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Jordan":               {"hazard_eq": 50, "hazard_flood":  5, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Kazakhstan":           {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Kenya":                {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Kuwait":               {"hazard_eq":  5, "hazard_flood":  5, "hazard_cyclone": 25, "hazard_fire":  0},
+    "Latvia":               {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Lebanon":              {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Lithuania":            {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Luxembourg":           {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Malaysia":             {"hazard_eq": 25, "hazard_flood": 75, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Malta":                {"hazard_eq": 25, "hazard_flood":  5, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Mexico":               {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 50},
+    "Moldova":              {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Morocco":              {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Mozambique":           {"hazard_eq": 25, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 50},
+    "Myanmar":              {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Netherlands":          {"hazard_eq":  5, "hazard_flood": 75, "hazard_cyclone":  0, "hazard_fire":  5},
+    "New Zealand":          {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone": 25, "hazard_fire": 50},
+    "Nigeria":              {"hazard_eq":  5, "hazard_flood": 75, "hazard_cyclone":  0, "hazard_fire": 25},
+    "North Macedonia":      {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Norway":               {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Oman":                 {"hazard_eq": 25, "hazard_flood": 25, "hazard_cyclone": 50, "hazard_fire":  5},
+    "Pakistan":             {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Panama":               {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Paraguay":             {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Peru":                 {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Philippines":          {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Poland":               {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Portugal":             {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 75},
+    "Qatar":                {"hazard_eq":  5, "hazard_flood":  5, "hazard_cyclone": 25, "hazard_fire":  0},
+    "Romania":              {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Russia":               {"hazard_eq": 50, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 50},
+    "Saudi Arabia":         {"hazard_eq": 25, "hazard_flood": 25, "hazard_cyclone": 25, "hazard_fire":  5},
+    "Senegal":              {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Serbia":               {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Singapore":            {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Slovakia":             {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire":  5},
+    "Slovenia":             {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "South Africa":         {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone": 25, "hazard_fire": 25},
+    "South Korea":          {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Spain":                {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 75},
+    "Sri Lanka":            {"hazard_eq": 25, "hazard_flood": 75, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Sweden":               {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Switzerland":          {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Taiwan":               {"hazard_eq": 75, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Tanzania":             {"hazard_eq": 25, "hazard_flood": 50, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Thailand":             {"hazard_eq": 25, "hazard_flood": 75, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Trinidad and Tobago":  {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone": 50, "hazard_fire": 25},
+    "Tunisia":              {"hazard_eq": 25, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Turkey":               {"hazard_eq": 75, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 50},
+    "Uganda":               {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Ukraine":              {"hazard_eq": 25, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "United Arab Emirates": {"hazard_eq":  5, "hazard_flood":  5, "hazard_cyclone": 25, "hazard_fire":  0},
+    "United Kingdom":       {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire":  5},
+    "United States":        {"hazard_eq": 50, "hazard_flood": 50, "hazard_cyclone": 50, "hazard_fire": 50},
+    "Uruguay":              {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Uzbekistan":           {"hazard_eq": 75, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Venezuela":            {"hazard_eq": 50, "hazard_flood": 75, "hazard_cyclone": 25, "hazard_fire": 25},
+    "Vietnam":              {"hazard_eq": 25, "hazard_flood": 75, "hazard_cyclone": 75, "hazard_fire": 25},
+    "Zambia":               {"hazard_eq":  5, "hazard_flood": 50, "hazard_cyclone":  0, "hazard_fire": 25},
+    "Zimbabwe":             {"hazard_eq":  5, "hazard_flood": 25, "hazard_cyclone":  0, "hazard_fire": 25},
+}
+
+_ZERO_HAZARD = {"hazard_eq": 0, "hazard_flood": 0, "hazard_cyclone": 0, "hazard_fire": 0}
+
+
+def get_hazard_scores(country_name: str) -> dict[str, int]:
+    """Return static nat cat hazard scores for a country (INFORM Risk 2023 basis)."""
+    return _STATIC_HAZARD.get(country_name, _ZERO_HAZARD)
 
 
 def build_power_tree(power_plants: list[dict]) -> tuple[cKDTree, list[dict]]:
@@ -160,18 +267,10 @@ def enrich(dc_path: Path = DC_PATH, pp_path: Path = PP_PATH) -> list[dict]:
     logger.info(f"DCs with coordinates: {len(valid_dcs)}")
 
     unique_countries = set(d.get("country", "") for d in valid_dcs)
-    iso3_codes = [COUNTRY_TO_ISO3[c] for c in unique_countries if c in COUNTRY_TO_ISO3]
-    unmapped = [c for c in unique_countries if c and c not in COUNTRY_TO_ISO3]
+    unmapped = [c for c in unique_countries if c and c not in _STATIC_HAZARD]
     if unmapped:
-        logger.warning(f"No ISO3 mapping for: {unmapped}")
-
-    logger.info(f"Fetching ThinkHazard for {len(iso3_codes)} countries...")
-    hazard_by_iso3 = fetch_thinkhazard_scores(iso3_codes)
-
-    hazard_by_country: dict[str, dict[str, int]] = {}
-    for country, iso3 in COUNTRY_TO_ISO3.items():
-        if iso3 in hazard_by_iso3:
-            hazard_by_country[country] = hazard_by_iso3[iso3]
+        logger.warning(f"No static hazard data for: {unmapped} (will use zeros)")
+    logger.info(f"Nat cat scores: static lookup ({len(_STATIC_HAZARD)} countries, INFORM 2023)")
 
     logger.info(f"Building power plant KD-tree ({len(plants)} plants)...")
     pp_tree, pp_list = build_power_tree(plants)
@@ -182,7 +281,7 @@ def enrich(dc_path: Path = DC_PATH, pp_path: Path = PP_PATH) -> list[dict]:
     logger.info("Enriching data centers...")
     for i, dc in enumerate(valid_dcs):
         country = dc.get("country", "")
-        hazards = hazard_by_country.get(country, {"hazard_eq": 0, "hazard_flood": 0, "hazard_cyclone": 0, "hazard_fire": 0})
+        hazards = get_hazard_scores(country)
 
         dist_km, fuel = nearest_plant(dc["lat"], dc["lng"], pp_tree, pp_list)
         grid = grid_score_from_plant(dist_km, fuel)
