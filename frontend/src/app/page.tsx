@@ -15,11 +15,6 @@ import PredictionsPanel from '@/components/PredictionsPanel';
 import SettingsPanel from '@/components/SettingsPanel';
 import MapLegend from '@/components/MapLegend';
 import ScaleBar from '@/components/ScaleBar';
-import MeshTerminal from '@/components/MeshTerminal';
-import MeshChat from '@/components/MeshChat';
-import InfonetTerminal from '@/components/InfonetTerminal';
-import { leaveWormhole, fetchWormholeState } from '@/mesh/wormholeClient';
-import ShodanPanel from '@/components/ShodanPanel';
 import GlobalTicker from '@/components/GlobalTicker';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import OnboardingModal, { useOnboarding } from '@/components/OnboardingModal';
@@ -32,10 +27,6 @@ import { useDataPolling, LAYER_TOGGLE_EVENT } from '@/hooks/useDataPolling';
 import { useBackendStatus, useDataKey } from '@/hooks/useDataStore';
 import { useReverseGeocode } from '@/hooks/useReverseGeocode';
 import { useRegionDossier } from '@/hooks/useRegionDossier';
-import {
-  requestSecureMeshTerminalLauncherOpen,
-  subscribeMeshTerminalOpen,
-} from '@/lib/meshTerminalLauncher';
 import {
   hasSentinelInfoBeenSeen,
   markSentinelInfoSeen,
@@ -331,38 +322,10 @@ export default function Dashboard() {
   }, [tickerOpen]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
-  const [terminalOpen, setTerminalOpen] = useState(false);
-  const [terminalLaunchToken, setTerminalLaunchToken] = useState(0);
-  const [infonetOpen, setInfonetOpen] = useState(false);
-  const [meshChatLaunchRequest, setMeshChatLaunchRequest] = useState<{
-    tab: 'infonet' | 'meshtastic' | 'dms';
-    gate?: string;
-    nonce: number;
-  } | null>(null);
-  const [dmCount, setDmCount] = useState(0);
   const [mapView, setMapView] = useState({ zoom: 2, latitude: 20 });
   const [locateBarOpen, setLocateBarOpen] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<{ lat: number; lng: number }[]>([]);
-
-  const openMeshTerminal = useCallback(() => {
-    setTerminalOpen(true);
-    setTerminalLaunchToken((prev) => prev + 1);
-  }, []);
-
-  const openInfonet = useCallback(() => {
-    setInfonetOpen(true);
-  }, []);
-
-  const openSecureTerminalLauncher = useCallback(() => {
-    requestSecureMeshTerminalLauncherOpen('dashboard');
-  }, []);
-
-  useEffect(() => subscribeMeshTerminalOpen(openInfonet), [openInfonet]);
-
-  const toggleInfonet = useCallback(() => {
-    setInfonetOpen(prev => !prev);
-  }, []);
 
   const [activeLayers, setActiveLayers] = useState<ActiveLayers>({
     flights: false,
@@ -453,19 +416,6 @@ export default function Dashboard() {
 
   // Left panel accordion state
   const [leftDataMinimized, setLeftDataMinimized] = useState(false);
-  const [leftMeshExpanded, setLeftMeshExpanded] = useState(true);
-  const [leftShodanMinimized, setLeftShodanMinimized] = useState(true);
-
-  const launchMeshChatTab = useCallback((tab: 'infonet' | 'meshtastic' | 'dms', gate?: string) => {
-    setLeftOpen(true);
-    setLeftMeshExpanded(true);
-    setMeshChatLaunchRequest({ tab, gate, nonce: Date.now() });
-  }, []);
-
-  const openLiveGateFromShell = useCallback((gate: string) => {
-    setInfonetOpen(false);
-    launchMeshChatTab('infonet', gate);
-  }, [launchMeshChatTab]);
 
   // Right panel: which panel is "focused" (expanded). null = none focused, all normal.
   const [rightFocusedPanel, setRightFocusedPanel] = useState<string | null>(null);
@@ -686,18 +636,6 @@ export default function Dashboard() {
                 </ErrorBoundary>
               </div>
 
-              {/* 2. MESH CHAT (Middle) */}
-              <div className="contents" style={{ direction: 'ltr' }}>
-                <MeshChat
-                  onFlyTo={handleFlyTo}
-                  expanded={leftMeshExpanded}
-                  onExpandedChange={setLeftMeshExpanded}
-                  onSettingsClick={() => setSettingsOpen(true)}
-                  onTerminalToggle={openSecureTerminalLauncher}
-                  launchRequest={meshChatLaunchRequest}
-                />
-              </div>
-
             </motion.div>
 
             {/* LEFT SIDEBAR TOGGLE TAB — aligns with Data Layers section */}
@@ -747,11 +685,7 @@ export default function Dashboard() {
               transition={{ type: 'spring', damping: 30, stiffness: 250 }}
             >
               <TopRightControls
-                onTerminalToggle={openInfonet}
-                onInfonetToggle={toggleInfonet}
                 onSettingsClick={() => setSettingsOpen(true)}
-                onMeshChatNavigate={launchMeshChatTab}
-                dmCount={dmCount}
               />
 
               {/* FIND / LOCATE */}
@@ -1051,30 +985,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-        {/* MESH TERMINAL */}
-        <MeshTerminal
-          isOpen={terminalOpen}
-          launchToken={terminalLaunchToken}
-          onClose={() => setTerminalOpen(false)}
-          onDmCount={setDmCount}
-          onSettingsClick={() => setSettingsOpen(true)}
-        />
-
-        {/* INFONET TERMINAL */}
-        <InfonetTerminal
-          isOpen={infonetOpen}
-          onClose={() => {
-            setInfonetOpen(false);
-            // Shut down Wormhole when the terminal closes so it doesn't stay running
-            fetchWormholeState(false)
-              .then((s) => {
-                if (s?.ready || s?.running) return leaveWormhole();
-              })
-              .catch(() => {});
-          }}
-          onOpenLiveGate={openLiveGateFromShell}
-        />
 
         {/* BACKEND DISCONNECTED BANNER */}
         {backendStatus === 'disconnected' && (
