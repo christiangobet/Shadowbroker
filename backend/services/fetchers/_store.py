@@ -232,9 +232,16 @@ active_layers: dict[str, bool] = {
     "tinygs": True,
     "ukraine_alerts": True,
     "power_plants": False,
+    "power_plants_nuclear": False,
+    "power_plants_fossil": False,
+    "power_plants_renewable": False,
+    "power_plants_other": False,
+    "hyperscalers": False,
     "viirs_nightlights": False,
     "psk_reporter": True,
     "correlations": True,
+    "trains": True,
+    "shodan_overlay": False,
 }
 
 
