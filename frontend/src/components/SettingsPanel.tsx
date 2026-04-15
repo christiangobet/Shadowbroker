@@ -3,7 +3,7 @@
 import { API_BASE } from "@/lib/api";
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, ExternalLink, Key, Shield, X, Save, ChevronDown, ChevronUp, Rss, Plus, Trash2, RotateCcw } from "lucide-react";
+import { Settings, ExternalLink, Key, Shield, X, Save, ChevronDown, ChevronUp, Rss, Plus, Trash2, RotateCcw, Database, RefreshCw, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 interface ApiEntry {
     id: string;
@@ -47,7 +47,22 @@ const CATEGORY_COLORS: Record<string, string> = {
     SIGINT: "text-rose-400 border-rose-500/30 bg-rose-950/20",
 };
 
-type Tab = "api-keys" | "news-feeds";
+type Tab = "api-keys" | "news-feeds" | "data-sync";
+
+interface SyncScript {
+    id: string;
+    label: string;
+    description: string;
+    layer: number;
+    fields: string[];
+    depends_on: string[];
+    status: "idle" | "running" | "success" | "error";
+    last_run_iso: string | null;
+    duration_s: number | null;
+    coverage: Record<string, number>;
+    log_tail: string;
+    error: string | null;
+}
 
 const SettingsPanel = React.memo(function SettingsPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const [activeTab, setActiveTab] = useState<Tab>("api-keys");
@@ -86,6 +101,44 @@ const SettingsPanel = React.memo(function SettingsPanel({ isOpen, onClose }: { i
             console.error("Failed to fetch API keys", e);
         }
     }, []);
+
+    // --- Data Sync state ---
+    const [syncScripts, setSyncScripts] = useState<SyncScript[]>([]);
+    const [syncRunning, setSyncRunning] = useState<Set<string>>(new Set());
+
+    const fetchSyncStatus = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/data-sync/status`);
+            if (res.ok) {
+                const data: SyncScript[] = await res.json();
+                setSyncScripts(data);
+                setSyncRunning(new Set(data.filter(s => s.status === "running").map(s => s.id)));
+            }
+        } catch (e) { console.error("Failed to fetch sync status", e); }
+    }, []);
+
+    const triggerSync = async (scriptId: string) => {
+        setSyncRunning(prev => new Set([...prev, scriptId]));
+        try {
+            await fetch(`${API_BASE}/api/data-sync/run/${scriptId}`, {
+                method: "POST",
+                headers: adminHeaders(),
+            });
+        } catch (e) { console.error("Failed to trigger sync", e); }
+    };
+
+    // Poll while any script is running
+    useEffect(() => {
+        if (!isOpen || activeTab !== "data-sync") return;
+        fetchSyncStatus();
+        if (syncRunning.size === 0) return;
+        const interval = setInterval(fetchSyncStatus, 3000);
+        return () => clearInterval(interval);
+    }, [isOpen, activeTab, syncRunning.size, fetchSyncStatus]);
+
+    useEffect(() => {
+        if (isOpen && activeTab === "data-sync") fetchSyncStatus();
+    }, [isOpen, activeTab, fetchSyncStatus]);
 
     const fetchFeeds = useCallback(async () => {
         try {
@@ -268,6 +321,14 @@ const SettingsPanel = React.memo(function SettingsPanel({ isOpen, onClose }: { i
                                 <Rss size={10} />
                                 NEWS FEEDS
                                 {feedsDirty && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("data-sync")}
+                                className={`flex-1 px-4 py-2.5 text-[10px] font-mono tracking-widest font-bold transition-colors flex items-center justify-center gap-1.5 ${activeTab === "data-sync" ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-950/10" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                            >
+                                <Database size={10} />
+                                DATA SYNC
+                                {syncRunning.size > 0 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                             </button>
                         </div>
 
@@ -483,6 +544,100 @@ const SettingsPanel = React.memo(function SettingsPanel({ isOpen, onClose }: { i
                                 </div>
                             </>
                         )}
+                        {/* ==================== DATA SYNC TAB ==================== */}
+                        {activeTab === "data-sync" && (
+                            <>
+                                <div className="mx-4 mt-4 p-3 rounded-lg border border-emerald-900/30 bg-emerald-950/10">
+                                    <div className="flex items-start gap-2">
+                                        <Database size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                                        <p className="text-[10px] text-[var(--text-secondary)] font-mono leading-relaxed">
+                                            Enrichment pipeline for <span className="text-emerald-400">datacenters_geocoded.json</span>. Each layer adds risk fields. Run them in order L1 → L5. Requires admin key.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto styled-scrollbar p-4 space-y-3">
+                                    {syncScripts.map((script) => {
+                                        const isRunning = script.status === "running" || syncRunning.has(script.id);
+                                        const coverageEntries = Object.entries(script.coverage || {});
+                                        const relTime = script.last_run_iso
+                                            ? new Date(script.last_run_iso).toLocaleString()
+                                            : null;
+                                        return (
+                                            <div key={script.id} className="rounded-lg border border-[var(--border-primary)]/60 p-3 hover:border-[var(--border-secondary)]/60 transition-colors">
+                                                {/* Header row */}
+                                                <div className="flex items-start justify-between gap-2 mb-2">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-950/20 shrink-0">L{script.layer}</span>
+                                                        <span className="text-xs font-mono font-bold text-[var(--text-primary)] truncate">{script.label}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {/* Status badge */}
+                                                        {isRunning && <span className="flex items-center gap-1 text-[9px] font-mono text-yellow-400"><RefreshCw size={9} className="animate-spin" />RUNNING</span>}
+                                                        {!isRunning && script.status === "success" && <span className="flex items-center gap-1 text-[9px] font-mono text-green-400"><CheckCircle size={9} />OK</span>}
+                                                        {!isRunning && script.status === "error" && <span className="flex items-center gap-1 text-[9px] font-mono text-red-400"><AlertCircle size={9} />ERROR</span>}
+                                                        {!isRunning && script.status === "idle" && <span className="text-[9px] font-mono text-[var(--text-muted)]">IDLE</span>}
+                                                        {/* Run button */}
+                                                        <button
+                                                            onClick={() => triggerSync(script.id)}
+                                                            disabled={isRunning || !adminKey}
+                                                            title={!adminKey ? "Admin key required" : `Run ${script.id}`}
+                                                            className="px-2 py-1 rounded border border-emerald-500/40 text-emerald-400 bg-emerald-950/20 hover:bg-emerald-500/20 transition-colors text-[9px] font-mono flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        >
+                                                            <RefreshCw size={9} className={isRunning ? "animate-spin" : ""} />
+                                                            RUN
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {/* Description */}
+                                                <p className="text-[10px] text-[var(--text-muted)] font-mono leading-relaxed mb-2">{script.description}</p>
+                                                {/* Last run */}
+                                                {relTime && (
+                                                    <div className="flex items-center gap-1.5 mb-2 text-[9px] font-mono text-[var(--text-muted)]">
+                                                        <Clock size={9} />
+                                                        <span>{relTime}</span>
+                                                        {script.duration_s != null && <span className="text-[var(--text-muted)]/60">· {script.duration_s}s</span>}
+                                                    </div>
+                                                )}
+                                                {/* Coverage bars */}
+                                                {coverageEntries.length > 0 && (
+                                                    <div className="space-y-1">
+                                                        {coverageEntries.map(([field, pct]) => (
+                                                            <div key={field} className="flex items-center gap-2">
+                                                                <span className="text-[9px] font-mono text-[var(--text-muted)] w-36 shrink-0 truncate">{field}</span>
+                                                                <div className="flex-1 h-1 rounded-full bg-[var(--bg-secondary)]">
+                                                                    <div
+                                                                        className="h-1 rounded-full transition-all duration-500"
+                                                                        style={{
+                                                                            width: `${pct}%`,
+                                                                            backgroundColor: pct > 50 ? "#34d399" : pct > 5 ? "#fbbf24" : "#6b7280",
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-[9px] font-mono text-[var(--text-muted)] w-10 text-right shrink-0">{pct}%</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {/* Error message */}
+                                                {script.status === "error" && script.error && (
+                                                    <p className="mt-2 text-[9px] font-mono text-red-400/80 bg-red-950/20 rounded px-2 py-1 border border-red-900/30">{script.error}</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {syncScripts.length === 0 && (
+                                        <div className="text-center py-8 text-[10px] font-mono text-[var(--text-muted)]">Loading pipeline status...</div>
+                                    )}
+                                </div>
+                                <div className="p-4 border-t border-[var(--border-primary)]/80">
+                                    <div className="flex items-center justify-between text-[9px] text-[var(--text-muted)] font-mono">
+                                        <span>{syncScripts.length} PIPELINE STAGES</span>
+                                        <span>{syncScripts.filter(s => s.status === "success").length} COMPLETED</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                     </motion.div>
                 </>
             )}

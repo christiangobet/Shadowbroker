@@ -19,7 +19,9 @@ import {
     svgTanker, svgRecon, svgPlanePink, svgPlaneAlertRed, svgPlaneDarkBlue,
     svgPlaneWhiteAlert, svgHeliPink, svgHeliAlertRed, svgHeliDarkBlue,
     svgHeliBlue, svgHeliLime, svgHeliWhiteAlert, svgPlaneBlack, svgHeliBlack,
-    svgDrone, svgDataCenter, svgPowerPlant, svgRadioTower, svgShipGray, svgShipRed, svgShipYellow,
+    svgDrone, svgDataCenter, svgPowerPlant,
+    svgPowerPlantNuclear, svgPowerPlantFossil, svgPowerPlantRenewable, svgPowerPlantOther,
+    svgRadioTower, svgShipGray, svgShipRed, svgShipYellow,
     svgShipBlue, svgShipWhite, svgShipPink, svgCarrier, svgCctv, svgWarning, svgThreat,
     svgTriangleYellow, svgTriangleRed,
     svgFireYellow, svgFireOrange, svgFireRed, svgFireDarkRed,
@@ -50,7 +52,7 @@ import { useClusterLabels } from "@/components/map/hooks/useClusterLabels";
 import { spreadAlertItems } from "@/utils/alertSpread";
 import {
     buildEarthquakesGeoJSON, buildJammingGeoJSON, buildCctvGeoJSON, buildKiwisdrGeoJSON,
-    buildFirmsGeoJSON, buildInternetOutagesGeoJSON, buildDataCentersGeoJSON, buildPowerPlantsGeoJSON, buildMilitaryBasesGeoJSON,
+    buildFirmsGeoJSON, buildInternetOutagesGeoJSON, buildDataCentersGeoJSON, buildHyperscalersGeoJSON, buildPowerPlantsGeoJSON, buildMilitaryBasesGeoJSON,
     buildGdeltGeoJSON, buildLiveuaGeoJSON, buildFrontlineGeoJSON,
     buildFlightLayerGeoJSON, buildUavGeoJSON,
     buildSatellitesGeoJSON, buildShipsGeoJSON, buildCarriersGeoJSON,
@@ -222,9 +224,22 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
         activeLayers.datacenters ? buildDataCentersGeoJSON(data?.datacenters) : null,
         [activeLayers.datacenters, data?.datacenters]);
 
-    const powerPlantsGeoJSON = useMemo(() =>
-        activeLayers.power_plants ? buildPowerPlantsGeoJSON(data?.power_plants) : null,
-        [activeLayers.power_plants, data?.power_plants]);
+    const hyperscalersGeoJSON = useMemo(() =>
+        activeLayers.hyperscalers ? buildHyperscalersGeoJSON(data?.datacenters) : null,
+        [activeLayers.hyperscalers, data?.datacenters]);
+
+    const powerPlantsGeoJSON = useMemo(() => {
+        const g = {
+            all: activeLayers.power_plants,
+            nuclear: activeLayers.power_plants_nuclear,
+            fossil: activeLayers.power_plants_fossil,
+            renewable: activeLayers.power_plants_renewable,
+            other: activeLayers.power_plants_other,
+        };
+        return (g.all || g.nuclear || g.fossil || g.renewable || g.other)
+            ? buildPowerPlantsGeoJSON(data?.power_plants, g)
+            : null;
+    }, [activeLayers.power_plants, activeLayers.power_plants_nuclear, activeLayers.power_plants_fossil, activeLayers.power_plants_renewable, activeLayers.power_plants_other, data?.power_plants]);
 
     const militaryBasesGeoJSON = useMemo(() =>
         activeLayers.military_bases ? buildMilitaryBasesGeoJSON(data?.military_bases) : null,
@@ -357,8 +372,12 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
             loadImg('fire-cluster-xl', svgFireClusterXL);
             // Data center icon
             loadImg('datacenter', svgDataCenter);
-            // Power plant icon
+            // Power plant icons (generic + per-type)
             loadImg('power-plant', svgPowerPlant);
+            loadImg('pp-nuclear', svgPowerPlantNuclear);
+            loadImg('pp-fossil', svgPowerPlantFossil);
+            loadImg('pp-renewable', svgPowerPlantRenewable);
+            loadImg('pp-other', svgPowerPlantOther);
             // Satellite mission-type icons
             loadImg('sat-mil', makeSatSvg('#ff3333'));
             loadImg('sat-sar', makeSatSvg('#00e5ff'));
@@ -601,7 +620,13 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
         internetOutagesGeoJSON && 'internet-outages-layer',
         dataCentersGeoJSON && 'datacenters-risk-halo',
         dataCentersGeoJSON && 'datacenters-layer',
-        powerPlantsGeoJSON && 'power-plants-layer',
+        hyperscalersGeoJSON && 'hyperscalers-halo',
+        hyperscalersGeoJSON && 'hyperscalers-circle',
+        hyperscalersGeoJSON && 'hyperscalers-label',
+        powerPlantsGeoJSON && 'power-plants-nuclear',
+        powerPlantsGeoJSON && 'power-plants-fossil',
+        powerPlantsGeoJSON && 'power-plants-renewable',
+        powerPlantsGeoJSON && 'power-plants-other',
         militaryBasesGeoJSON && 'military-bases-layer',
         firmsGeoJSON && 'firms-viirs-layer'
     ].filter(Boolean) as string[];
@@ -1502,10 +1527,59 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
                     </Source>
                 )}
 
+                {/* Hyperscaler positions — no clustering, company-colored, always labeled */}
+                {hyperscalersGeoJSON && (
+                    <Source id="hyperscalers" type="geojson" data={hyperscalersGeoJSON as any}>
+                        {/* Outer glow halo */}
+                        <Layer
+                            id="hyperscalers-halo"
+                            type="circle"
+                            paint={{
+                                'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 8, 6, 14, 10, 20],
+                                'circle-color': ['get', 'brand_color'],
+                                'circle-opacity': 0.18,
+                                'circle-blur': 0.7,
+                            }}
+                        />
+                        {/* Solid branded dot */}
+                        <Layer
+                            id="hyperscalers-circle"
+                            type="circle"
+                            paint={{
+                                'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 4, 6, 7, 10, 10],
+                                'circle-color': ['get', 'brand_color'],
+                                'circle-opacity': 0.9,
+                                'circle-stroke-width': 1.5,
+                                'circle-stroke-color': '#ffffff',
+                                'circle-stroke-opacity': 0.5,
+                            }}
+                        />
+                        {/* Company label — visible from zoom 3 */}
+                        <Layer
+                            id="hyperscalers-label"
+                            type="symbol"
+                            layout={{
+                                'text-field': ['step', ['zoom'], '', 3, ['get', 'label']],
+                                'text-font': ['Noto Sans Bold'],
+                                'text-size': ['interpolate', ['linear'], ['zoom'], 3, 8, 6, 10, 10, 12],
+                                'text-offset': [0, 1.2],
+                                'text-anchor': 'top',
+                                'text-allow-overlap': false,
+                                'text-optional': true,
+                            }}
+                            paint={{
+                                'text-color': ['get', 'brand_color'],
+                                'text-halo-color': 'rgba(0,0,0,0.95)',
+                                'text-halo-width': 1.5,
+                            }}
+                        />
+                    </Source>
+                )}
+
                 {/* Power Plant positions */}
                 {powerPlantsGeoJSON && (
                     <Source id="power-plants" type="geojson" data={powerPlantsGeoJSON as any} cluster={true} clusterRadius={30} clusterMaxZoom={8}>
-                        {/* Cluster circles */}
+                        {/* Cluster circles — colour reflects dominant type via mixed amber */}
                         <Layer
                             id="power-plants-clusters"
                             type="circle"
@@ -1528,28 +1602,74 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
                                 'text-size': 10,
                                 'text-allow-overlap': true,
                             }}
-                            paint={{
-                                'text-color': '#fde68a',
+                            paint={{ 'text-color': '#fde68a' }}
+                        />
+                        {/* Per-type icons — nuclear */}
+                        <Layer
+                            id="power-plants-nuclear"
+                            type="symbol"
+                            filter={['all', ['!', ['has', 'point_count']], ['==', ['get', 'fuel_group'], 'nuclear']]}
+                            layout={{
+                                'icon-image': 'pp-nuclear',
+                                'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2],
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true,
                             }}
                         />
-                        {/* Individual power plant icons */}
+                        {/* Fossil */}
                         <Layer
-                            id="power-plants-layer"
+                            id="power-plants-fossil"
+                            type="symbol"
+                            filter={['all', ['!', ['has', 'point_count']], ['==', ['get', 'fuel_group'], 'fossil']]}
+                            layout={{
+                                'icon-image': 'pp-fossil',
+                                'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2],
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true,
+                            }}
+                        />
+                        {/* Renewable */}
+                        <Layer
+                            id="power-plants-renewable"
+                            type="symbol"
+                            filter={['all', ['!', ['has', 'point_count']], ['==', ['get', 'fuel_group'], 'renewable']]}
+                            layout={{
+                                'icon-image': 'pp-renewable',
+                                'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2],
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true,
+                            }}
+                        />
+                        {/* Other */}
+                        <Layer
+                            id="power-plants-other"
+                            type="symbol"
+                            filter={['all', ['!', ['has', 'point_count']], ['==', ['get', 'fuel_group'], 'other']]}
+                            layout={{
+                                'icon-image': 'pp-other',
+                                'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2],
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true,
+                            }}
+                        />
+                        {/* Name labels — zoom 7+ */}
+                        <Layer
+                            id="power-plants-labels"
                             type="symbol"
                             filter={['!', ['has', 'point_count']]}
                             layout={{
-                                'icon-image': 'power-plant',
-                                'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 6, 0.7, 10, 1.0],
-                                'icon-allow-overlap': true,
-                                'text-field': ['step', ['zoom'], '', 6, ['get', 'name']],
+                                'text-field': ['step', ['zoom'], '', 7, ['get', 'name']],
                                 'text-font': ['Noto Sans Regular'],
                                 'text-size': 9,
-                                'text-offset': [0, 1.2],
+                                'text-offset': [0, 1.4],
                                 'text-anchor': 'top',
                                 'text-allow-overlap': false,
+                                'text-optional': true,
                             }}
                             paint={{
-                                'text-color': '#fbbf24',
+                                'text-color': ['match', ['get', 'fuel_group'],
+                                    'nuclear', '#e879f9', 'fossil', '#fb923c',
+                                    'renewable', '#4ade80', '#94a3b8'],
                                 'text-halo-color': 'rgba(0,0,0,0.9)',
                                 'text-halo-width': 1,
                             }}
@@ -1921,7 +2041,8 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
 
                 {/* Data Center click popup */}
                 {selectedEntity?.type === 'datacenter' && (() => {
-                    const dc = data?.datacenters?.find((_: any, i: number) => `dc-${i}` === selectedEntity.id);
+                    const dc = data?.datacenters?.find((_: any, i: number) => `dc-${i}` === selectedEntity.id)
+                        ?? (selectedEntity.extra?.type === 'datacenter' ? selectedEntity.extra : null);
                     if (!dc) return null;
                     // Check if any internet outage is in the same country
                     const outagesInCountry = (data?.internet_outages || []).filter((o: any) =>
@@ -1957,10 +2078,54 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
                                     </div>
                                 )}
 
+                                {/* L1 — Physical asset fields */}
+                                {(dc.operator_type || dc.tier_rating != null || dc.mw_capacity != null || dc.year_built != null || dc.cooling_type || dc.floor_level || true) && (
+                                    <div className="mt-2 border-t border-violet-400/20 pt-1.5">
+                                        <div className="text-[9px] text-violet-500 tracking-widest mb-1">FACILITY</div>
+                                        {dc.operator_type && (
+                                            <div className="map-popup-row">
+                                                Type: <span className="text-white capitalize">{dc.operator_type}</span>
+                                            </div>
+                                        )}
+                                        <div className="map-popup-row">
+                                            Tier: {dc.tier_rating != null
+                                                ? <span className="text-white">Tier {dc.tier_rating}
+                                                    <span className="ml-1 text-[9px] text-violet-400">
+                                                        {dc.tier_rating === 4 ? '(Fault-tolerant)' : dc.tier_rating === 3 ? '(Concurrently maintainable)' : dc.tier_rating === 2 ? '(Redundant capacity)' : '(Basic)'}
+                                                    </span>
+                                                  </span>
+                                                : <span className="text-[var(--text-muted)]">N/A — not Uptime certified</span>
+                                            }
+                                        </div>
+                                        {dc.mw_capacity != null && (
+                                            <div className="map-popup-row">
+                                                Capacity: <span className="text-white">{dc.mw_capacity} MW IT</span>
+                                            </div>
+                                        )}
+                                        {dc.year_built != null && (
+                                            <div className="map-popup-row">
+                                                Built: <span className="text-white">{dc.year_built}</span>
+                                            </div>
+                                        )}
+                                        {dc.cooling_type && (
+                                            <div className="map-popup-row">
+                                                Cooling: <span className="text-white capitalize">{dc.cooling_type}</span>
+                                            </div>
+                                        )}
+                                        {dc.floor_level && (
+                                            <div className="map-popup-row">
+                                                Level: <span className="text-white capitalize">{dc.floor_level}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Risk score section */}
                                 {dc.risk_score != null && dc.risk_score > 0 && (
                                     <div className="mt-2 border-t border-violet-400/20 pt-1.5">
                                         <div className="text-[9px] text-violet-500 tracking-widest mb-1">RISK ASSESSMENT</div>
+
+                                        {/* Composite score */}
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[10px] text-violet-300 w-16 shrink-0">Composite</span>
                                             <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
@@ -1974,26 +2139,110 @@ const MaplibreViewer = ({ data, activeLayers, onEntityClick, flyToLocation, sele
                                             </div>
                                             <span className="text-[10px] text-white w-6 text-right">{dc.risk_score}</span>
                                         </div>
+
+                                        {/* Hazard breakdown — L2 fields */}
+                                        <div className="text-[8px] text-violet-600 tracking-widest mt-1.5 mb-1">HAZARD EXPOSURE</div>
+
+                                        {/* Seismic */}
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[10px] text-violet-300 w-16 shrink-0">Nat Cat</span>
+                                            <span
+                                                className="text-[10px] text-violet-300 w-16 shrink-0 cursor-help"
+                                                title="Peak Ground Acceleration (g) — USGS Design Maps, 10% prob. in 50 yr, Site Class C. Low <0.04g · Moderate 0.1g · High 0.4g · Extreme >0.8g"
+                                            >Seismic</span>
                                             <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
-                                                <div className="h-1.5 rounded-full bg-orange-400" style={{ width: `${dc.nat_cat_score ?? 0}%` }} />
+                                                <div className="h-1.5 rounded-full bg-red-500" style={{ width: `${dc.hazard_eq ?? 0}%` }} />
                                             </div>
-                                            <span className="text-[10px] text-white w-6 text-right">{dc.nat_cat_score ?? 0}</span>
+                                            <span
+                                                className="text-[10px] text-white w-16 text-right shrink-0 cursor-help"
+                                                title={dc.usgs_pga_10pct_50yr != null
+                                                    ? `PGA ${dc.usgs_pga_10pct_50yr}g — Peak Ground Acceleration (USGS NSHM). Score: ${dc.hazard_eq ?? 0}/100`
+                                                    : `Score ${dc.hazard_eq ?? 0}/100 — INFORM 2023 nat-cat index (no raw PGA available for this site)`}
+                                            >
+                                                {dc.usgs_pga_10pct_50yr != null
+                                                    ? `${dc.usgs_pga_10pct_50yr}g`
+                                                    : `${dc.hazard_eq ?? 0}`}
+                                            </span>
                                         </div>
+
+                                        {/* Flood */}
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span
+                                                className="text-[10px] text-violet-300 w-16 shrink-0 cursor-help"
+                                                title="100-year return period flood depth (m) — JRC GloFAS. 0m = no flood zone · 0.3m = ankle-deep · 1m = significant · 3m+ = catastrophic"
+                                            >Flood</span>
+                                            <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
+                                                <div className="h-1.5 rounded-full bg-blue-400" style={{ width: `${dc.hazard_flood ?? 0}%` }} />
+                                            </div>
+                                            <span
+                                                className="text-[10px] text-white w-16 text-right shrink-0 cursor-help"
+                                                title={dc.jrc_flood_100yr_m != null
+                                                    ? `Flood depth ${dc.jrc_flood_100yr_m}m at 100-yr RP (JRC GloFAS). Score: ${dc.hazard_flood ?? 0}/100`
+                                                    : `Score ${dc.hazard_flood ?? 0}/100 — INFORM 2023 nat-cat index (no JRC raw depth available for this site)`}
+                                            >
+                                                {dc.jrc_flood_100yr_m != null
+                                                    ? `${dc.jrc_flood_100yr_m}m`
+                                                    : `${dc.hazard_flood ?? 0}`}
+                                            </span>
+                                        </div>
+
+                                        {/* Cyclone */}
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span
+                                                className="text-[10px] text-violet-300 w-16 shrink-0 cursor-help"
+                                                title="Tropical cyclone tracks/decade passing within 200 km — NOAA IBTrACS (last 30 yr). 0 = no exposure · 3 = occasional · 10 = frequent · 20+ = extreme"
+                                            >Cyclone</span>
+                                            <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
+                                                <div className="h-1.5 rounded-full bg-cyan-400" style={{ width: `${dc.hazard_cyclone ?? 0}%` }} />
+                                            </div>
+                                            <span
+                                                className="text-[10px] text-white w-16 text-right shrink-0 cursor-help"
+                                                title={dc.ibtracs_track_density != null
+                                                    ? `${dc.ibtracs_track_density} storm tracks/decade within 200 km (IBTrACS). Score: ${dc.hazard_cyclone ?? 0}/100`
+                                                    : `Score ${dc.hazard_cyclone ?? 0}/100 — INFORM 2023 nat-cat index (no IBTrACS density available)`}
+                                            >
+                                                {dc.ibtracs_track_density != null
+                                                    ? `${dc.ibtracs_track_density}/dec`
+                                                    : `${dc.hazard_cyclone ?? 0}`}
+                                            </span>
+                                        </div>
+
+                                        {/* Wildfire */}
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span
+                                                className="text-[10px] text-violet-300 w-16 shrink-0 cursor-help"
+                                                title="Estimated active-fire days/yr within 50 km — NASA FIRMS MODIS (7-day sample × 52). 0 = none · 10 = occasional · 20 = regular · 40+ = high"
+                                            >Wildfire</span>
+                                            <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
+                                                <div className="h-1.5 rounded-full bg-orange-400" style={{ width: `${dc.hazard_fire ?? 0}%` }} />
+                                            </div>
+                                            <span
+                                                className="text-[10px] text-white w-16 text-right shrink-0 cursor-help"
+                                                title={dc.wildfire_days_50km != null
+                                                    ? `${dc.wildfire_days_50km} estimated fire days/yr within 50 km (FIRMS). Score: ${dc.hazard_fire ?? 0}/100`
+                                                    : `Score ${dc.hazard_fire ?? 0}/100 — INFORM 2023 nat-cat index (no FIRMS density available)`}
+                                            >
+                                                {dc.wildfire_days_50km != null
+                                                    ? `${dc.wildfire_days_50km}d/yr`
+                                                    : `${dc.hazard_fire ?? 0}`}
+                                            </span>
+                                        </div>
+
+                                        {/* Infrastructure scores */}
+                                        <div className="text-[8px] text-violet-600 tracking-widest mt-1.5 mb-1">INFRASTRUCTURE</div>
+
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[10px] text-violet-300 w-16 shrink-0">Grid</span>
                                             <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
                                                 <div className="h-1.5 rounded-full bg-yellow-400" style={{ width: `${dc.grid_score ?? 0}%` }} />
                                             </div>
-                                            <span className="text-[10px] text-white w-6 text-right">{dc.grid_score ?? 0}</span>
+                                            <span className="text-[10px] text-white w-16 text-right shrink-0">{dc.grid_score ?? 0}</span>
                                         </div>
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[10px] text-violet-300 w-16 shrink-0">Density</span>
                                             <div className="flex-1 bg-[#0d0820] rounded-full h-1.5">
-                                                <div className="h-1.5 rounded-full bg-blue-400" style={{ width: `${dc.concentration_score ?? 0}%` }} />
+                                                <div className="h-1.5 rounded-full bg-indigo-400" style={{ width: `${dc.concentration_score ?? 0}%` }} />
                                             </div>
-                                            <span className="text-[10px] text-white w-6 text-right">{dc.dc_density_50km ?? 0} nearby</span>
+                                            <span className="text-[10px] text-white w-16 text-right shrink-0">{dc.dc_density_50km ?? 0} nearby</span>
                                         </div>
                                         {dc.nearest_plant_km != null && (
                                             <div className="map-popup-row mt-0.5">

@@ -222,6 +222,7 @@ export interface InternetOutage {
 // ─── DATA CENTERS ───────────────────────────────────────────────────────────
 
 export interface DataCenter {
+  // ── Identity ──────────────────────────────────────────────────────────────
   name: string;
   company: string;
   street?: string;
@@ -230,18 +231,58 @@ export interface DataCenter {
   zip?: string;
   lat: number;
   lng: number;
-  // Risk enrichment fields
+
+  // ── Layer 1: Physical asset ───────────────────────────────────────────────
+  // Populated by: scripts/enrich_l1_physical.py (OSM + bgeesaman dataset)
+  operator_type?: "hyperscaler" | "colocation" | "enterprise" | null;
+  tier_rating?: 1 | 2 | 3 | 4 | null;        // Uptime Institute Tier I–IV
+  mw_capacity?: number | null;               // IT load in MW (proxy for value at risk)
+  year_built?: number | null;
+  cooling_type?: "air" | "liquid" | "hybrid" | null;
+  floor_level?: "above" | "basement" | "mixed" | null;
+
+  // ── Layer 2: Hazard exposure (point-extracted, facility-level) ────────────
+  // Populated by: scripts/enrich_l2_hazard.py
+  jrc_flood_100yr_m?: number | null;         // JRC flood depth at 100yr return period (metres)
+  usgs_pga_10pct_50yr?: number | null;       // USGS peak ground acceleration (g)
+  ibtracs_track_density?: number | null;     // Tropical cyclone tracks per decade within 200 km
+  wildfire_days_50km?: number | null;        // NASA FIRMS: active fire days/yr within 50 km
+  heat_extreme_days?: number | null;         // ERA5: days/yr above 35°C WBGT
+  // Normalised 0–100 scores derived from raw values above (legacy + updated)
   hazard_eq?: number;
   hazard_flood?: number;
   hazard_cyclone?: number;
   hazard_fire?: number;
+
+  // ── Layer 2 (legacy): power proximity ────────────────────────────────────
   nearest_plant_km?: number | null;
   nearest_plant_fuel?: string;
   grid_score?: number;
   dc_density_50km?: number;
   concentration_score?: number;
   nat_cat_score?: number;
-  risk_score?: number;
+
+  // ── Layer 3: Dependency graph ─────────────────────────────────────────────
+  // Populated by: scripts/enrich_l3_dependencies.py (OSM power + PeeringDB)
+  substation_osm_id?: string | null;         // Nearest HV substation OSM ID
+  substation_dist_km?: number | null;
+  substation_cluster_id?: string | null;     // Cluster ID for shared-substation grouping
+  substation_shared_count?: number | null;   // Facilities sharing the same substation
+  ixp_ids?: string[] | null;                 // PeeringDB IXP IDs within 100 km
+  nearest_ixp_km?: number | null;
+  ixp_count_50km?: number | null;
+  fibre_path_count?: number | null;          // Independent physical fibre paths to nearest IXP
+  water_stress_idx?: number | null;          // FAO AQUASTAT 0–5 (5 = critically stressed)
+  asn?: string | null;                       // Primary BGP ASN (PeeringDB)
+
+  // ── Layer 4: Network topology ─────────────────────────────────────────────
+  // Populated by: scripts/enrich_l4_topology.py (graph analysis)
+  betweenness_centrality?: number | null;    // 0–1 normalised graph centrality
+  systemic_importance_score?: number | null; // 0–100 composite systemic weight
+  accumulation_flag?: boolean | null;        // True if substation cluster size ≥ 3
+
+  // ── Layer 5: Composite risk index ────────────────────────────────────────
+  risk_score?: number;                       // 0–100 weighted composite (all layers)
 }
 
 export interface PowerPlant {
@@ -473,8 +514,13 @@ export interface ActiveLayers {
   firms: boolean;
   internet_outages: boolean;
   datacenters: boolean;
+  hyperscalers: boolean;
   military_bases: boolean;
   power_plants: boolean;
+  power_plants_nuclear: boolean;
+  power_plants_fossil: boolean;
+  power_plants_renewable: boolean;
+  power_plants_other: boolean;
 }
 
 export interface SelectedEntity {

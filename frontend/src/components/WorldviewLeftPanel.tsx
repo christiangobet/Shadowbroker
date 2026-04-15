@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plane, AlertTriangle, Activity, Satellite, Cctv, ChevronDown, ChevronUp, Ship, Eye, Anchor, Settings, Sun, Moon, BookOpen, Radio, Play, Pause, Globe, Flame, Wifi, Server, Shield, Zap, ToggleLeft, ToggleRight, Palette } from "lucide-react";
+import { Plane, AlertTriangle, Activity, Satellite, Cctv, ChevronDown, ChevronUp, Ship, Eye, Anchor, Settings, Sun, Moon, BookOpen, Radio, Play, Pause, Globe, Flame, Wifi, Server, Shield, Zap, Wind, Layers, ToggleLeft, ToggleRight, Palette } from "lucide-react";
 import packageJson from "../../package.json";
 import { useTheme } from "@/lib/ThemeContext";
 
@@ -65,6 +65,8 @@ import type { DashboardData, ActiveLayers, SelectedEntity, KiwiSDR } from "@/typ
 
 const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({ data, activeLayers, setActiveLayers, onSettingsClick, onLegendClick, gibsDate, setGibsDate, gibsOpacity, setGibsOpacity, onEntityClick, onFlyTo, trackedSdr, setTrackedSdr }: { data: DashboardData; activeLayers: ActiveLayers; setActiveLayers: React.Dispatch<React.SetStateAction<ActiveLayers>>; onSettingsClick?: () => void; onLegendClick?: () => void; gibsDate?: string; setGibsDate?: (d: string) => void; gibsOpacity?: number; setGibsOpacity?: (o: number) => void; onEntityClick?: (entity: SelectedEntity) => void; onFlyTo?: (lat: number, lng: number) => void; trackedSdr?: KiwiSDR | null; setTrackedSdr?: (sdr: KiwiSDR | null) => void }) {
     const [isMinimized, setIsMinimized] = useState(false);
+    const [isRiskMinimized, setIsRiskMinimized] = useState(false);
+    const [ppExpanded, setPpExpanded] = useState(false);
     const { theme, toggleTheme, hudColor, cycleHudColor } = useTheme();
     const [gibsPlaying, setGibsPlaying] = useState(false);
     const [potusEnabled, setPotusEnabled] = useState(true);
@@ -125,32 +127,43 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({ data, active
         return results;
     }, [data?.tracked_flights]);
 
-    const layers = [
+    const dataLayers = [
         { id: "flights", name: "Commercial Flights", source: "adsb.lol", count: data?.commercial_flights?.length || 0, icon: Plane },
         { id: "private", name: "Private Flights", source: "adsb.lol", count: data?.private_flights?.length || 0, icon: Plane },
         { id: "jets", name: "Private Jets", source: "adsb.lol", count: data?.private_jets?.length || 0, icon: Plane },
         { id: "military", name: "Military Flights", source: "adsb.lol", count: data?.military_flights?.length || 0, icon: AlertTriangle },
         { id: "tracked", name: "Tracked Aircraft", source: "Plane-Alert DB", count: data?.tracked_flights?.length || 0, icon: Eye },
-        { id: "earthquakes", name: "Earthquakes (24h)", source: "USGS", count: data?.earthquakes?.length || 0, icon: Activity },
         { id: "satellites", name: "Satellites", source: data?.satellite_source === "celestrak" ? "CelesTrak SGP4" : data?.satellite_source === "tle_api" ? "TLE API · SGP4" : data?.satellite_source === "disk_cache" ? "Cached · SGP4 (est.)" : "CelesTrak SGP4", count: data?.satellites?.length || 0, icon: Satellite },
         { id: "ships_military", name: "Military / Carriers", source: "AIS Stream", count: militaryShipCount, icon: Ship },
         { id: "ships_cargo", name: "Cargo / Tankers", source: "AIS Stream", count: cargoShipCount, icon: Ship },
         { id: "ships_civilian", name: "Civilian Vessels", source: "AIS Stream", count: civilianShipCount, icon: Anchor },
         { id: "ships_passenger", name: "Cruise / Passenger", source: "AIS Stream", count: passengerShipCount, icon: Anchor },
         { id: "ships_tracked_yachts", name: "Tracked Yachts", source: "Yacht-Alert DB", count: trackedYachtCount, icon: Eye },
-        { id: "ukraine_frontline", name: "Ukraine Frontline", source: "DeepStateMap", count: data?.frontlines ? 1 : 0, icon: AlertTriangle },
-        { id: "global_incidents", name: "Global Incidents", source: "GDELT", count: data?.gdelt?.length || 0, icon: Activity },
         { id: "cctv", name: "CCTV Mesh", source: "CCTV Mesh + Street View", count: data?.cctv?.length || 0, icon: Cctv },
-        { id: "gps_jamming", name: "GPS Jamming", source: "ADS-B NACp", count: data?.gps_jamming?.length || 0, icon: Radio },
+        { id: "kiwisdr", name: "KiwiSDR Receivers", source: "KiwiSDR.com", count: data?.kiwisdr?.length || 0, icon: Radio },
         { id: "gibs_imagery", name: "MODIS Terra (Daily)", source: "NASA GIBS", count: null, icon: Globe },
         { id: "highres_satellite", name: "High-Res Satellite", source: "Esri World Imagery", count: null, icon: Satellite },
-        { id: "kiwisdr", name: "KiwiSDR Receivers", source: "KiwiSDR.com", count: data?.kiwisdr?.length || 0, icon: Radio },
-        { id: "firms", name: "Fire Hotspots (24h)", source: "NASA FIRMS VIIRS", count: data?.firms_fires?.length || 0, icon: Flame },
-        { id: "internet_outages", name: "Internet Outages", source: "IODA / Georgia Tech", count: data?.internet_outages?.length || 0, icon: Wifi },
-        { id: "datacenters", name: "Data Centers", source: "DC Map (GitHub)", count: data?.datacenters?.length || 0, icon: Server },
-        { id: "power_plants", name: "Power Plants", source: "WRI (Static)", count: data?.power_plants?.length || 0, icon: Zap },
-        { id: "military_bases", name: "Military Bases", source: "OSINT (Static)", count: data?.military_bases?.length || 0, icon: Shield },
         { id: "day_night", name: "Day / Night Cycle", source: "Solar Calc", count: null, icon: Sun },
+    ];
+
+    const riskLayers = [
+        { id: "hyperscalers", name: "Hyperscalers", source: "DC Map — AWS / GCP / Azure / Meta", count: data?.datacenters?.filter((d: any) => d.operator_type === 'hyperscaler').length || 0, icon: Server },
+        { id: "datacenters", name: "All Data Centers", source: "DC Map (GitHub)", count: data?.datacenters?.length || 0, icon: Server },
+        { id: "power_plants", name: "Power Plants", source: "WRI (Static)", count: data?.power_plants?.length || 0, icon: Layers },
+        { id: "military_bases", name: "Military Bases", source: "OSINT (Static)", count: data?.military_bases?.length || 0, icon: Shield },
+        { id: "gps_jamming", name: "GPS Jamming", source: "ADS-B NACp", count: data?.gps_jamming?.length || 0, icon: Radio },
+        { id: "internet_outages", name: "Internet Outages", source: "IODA / Georgia Tech", count: data?.internet_outages?.length || 0, icon: Wifi },
+        { id: "earthquakes", name: "Earthquakes (24h)", source: "USGS", count: data?.earthquakes?.length || 0, icon: Activity },
+        { id: "firms", name: "Fire Hotspots (24h)", source: "NASA FIRMS VIIRS", count: data?.firms_fires?.length || 0, icon: Flame },
+        { id: "ukraine_frontline", name: "Ukraine Frontline", source: "DeepStateMap", count: data?.frontlines ? 1 : 0, icon: AlertTriangle },
+        { id: "global_incidents", name: "Global Incidents", source: "GDELT", count: data?.gdelt?.length || 0, icon: Activity },
+    ];
+
+    const ppSubLayers = [
+        { id: "power_plants_nuclear",   name: "Nuclear",   source: "195 sites",         icon: Zap,   color: "text-fuchsia-400",  dot: "#e879f9" },
+        { id: "power_plants_fossil",    name: "Fossil",    source: "Coal / Gas / Oil",  icon: Flame, color: "text-orange-400",   dot: "#fb923c" },
+        { id: "power_plants_renewable", name: "Renewable", source: "Solar / Wind / Hydro", icon: Wind, color: "text-green-400", dot: "#4ade80" },
+        { id: "power_plants_other",     name: "Other",     source: "Biomass / Storage", icon: Sun,   color: "text-slate-400",    dot: "#94a3b8" },
     ];
 
     const shipIcon = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76" /><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6" /></svg>;
@@ -217,21 +230,20 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({ data, active
                     <span className="text-[10px] text-[var(--text-muted)] font-mono tracking-widest" onClick={() => setIsMinimized(!isMinimized)}>DATA LAYERS</span>
                     <div className="flex items-center gap-2">
                         <button
-                            title={Object.entries(activeLayers).filter(([k]) => k !== 'gibs_imagery').every(([, v]) => v) ? "Disable all layers" : "Enable all layers"}
-                            className={`${Object.entries(activeLayers).filter(([k]) => k !== 'gibs_imagery').every(([, v]) => v) ? 'text-cyan-400' : 'text-[var(--text-muted)]'} hover:text-cyan-400 transition-colors`}
+                            title={dataLayers.filter(l => l.id !== 'gibs_imagery').every(l => activeLayers[l.id as keyof typeof activeLayers]) ? "Disable all data layers" : "Enable all data layers"}
+                            className={`${dataLayers.filter(l => l.id !== 'gibs_imagery').every(l => activeLayers[l.id as keyof typeof activeLayers]) ? 'text-cyan-400' : 'text-[var(--text-muted)]'} hover:text-cyan-400 transition-colors`}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                const allOn = Object.entries(activeLayers).filter(([k]) => k !== 'gibs_imagery').every(([, v]) => v);
+                                const ids = dataLayers.filter(l => l.id !== 'gibs_imagery').map(l => l.id);
+                                const allOn = ids.every(id => activeLayers[id as keyof typeof activeLayers]);
                                 setActiveLayers((prev: any) => {
-                                    const next: any = {};
-                                    for (const k of Object.keys(prev)) {
-                                        next[k] = k === 'gibs_imagery' ? false : !allOn;
-                                    }
+                                    const next: any = { ...prev };
+                                    for (const id of ids) next[id] = !allOn;
                                     return next;
                                 });
                             }}
                         >
-                            {Object.entries(activeLayers).filter(([k]) => k !== 'gibs_imagery').every(([, v]) => v) ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                            {dataLayers.filter(l => l.id !== 'gibs_imagery').every(l => activeLayers[l.id as keyof typeof activeLayers]) ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                         </button>
                         <button className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" onClick={() => setIsMinimized(!isMinimized)}>
                             {isMinimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -355,7 +367,7 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({ data, active
                                     </div>
                                 )}
 
-                                {layers.map((layer, idx) => {
+                                {dataLayers.map((layer, idx) => {
                                     const Icon = layer.icon;
                                     const active = activeLayers[layer.id as keyof typeof activeLayers] || false;
 
@@ -462,6 +474,130 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({ data, active
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+
+            {/* Risk Layers Box */}
+            <div className="bg-[var(--bg-primary)]/40 backdrop-blur-md border border-amber-500/20 rounded-xl pointer-events-auto shadow-[0_4px_30px_rgba(0,0,0,0.2)] flex flex-col relative overflow-hidden mt-2">
+
+                {/* Header / Toggle */}
+                <div className="flex justify-between items-center p-4 cursor-pointer hover:bg-amber-950/10 transition-colors border-b border-amber-500/20">
+                    <span className="text-[10px] text-amber-500/70 font-mono tracking-widest" onClick={() => setIsRiskMinimized(!isRiskMinimized)}>RISK LAYERS</span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            title={riskLayers.every(l => activeLayers[l.id as keyof typeof activeLayers]) ? "Disable all risk layers" : "Enable all risk layers"}
+                            className={`${riskLayers.every(l => activeLayers[l.id as keyof typeof activeLayers]) ? 'text-amber-400' : 'text-[var(--text-muted)]'} hover:text-amber-400 transition-colors`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const ids = riskLayers.map(l => l.id);
+                                const allOn = ids.every(id => activeLayers[id as keyof typeof activeLayers]);
+                                setActiveLayers((prev: any) => {
+                                    const next: any = { ...prev };
+                                    for (const id of ids) next[id] = !allOn;
+                                    return next;
+                                });
+                            }}
+                        >
+                            {riskLayers.every(l => activeLayers[l.id as keyof typeof activeLayers]) ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                        </button>
+                        <button className="text-[var(--text-muted)] hover:text-amber-400 transition-colors" onClick={() => setIsRiskMinimized(!isRiskMinimized)}>
+                            {isRiskMinimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                        </button>
+                    </div>
+                </div>
+
+                <AnimatePresence>
+                    {!isRiskMinimized && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-y-auto styled-scrollbar"
+                        >
+                            <div className="flex flex-col gap-6 p-4 pt-2 pb-6">
+                                {riskLayers.map((layer, idx) => {
+                                    const Icon = layer.icon;
+                                    const active = activeLayers[layer.id as keyof typeof activeLayers] || false;
+                                    const isPP = layer.id === 'power_plants';
+
+                                    return (
+                                        <div key={idx} className="flex flex-col">
+                                            <div
+                                                className="flex items-start justify-between group cursor-pointer"
+                                                onClick={() => setActiveLayers((prev: any) => ({ ...prev, [layer.id]: !active }))}
+                                            >
+                                                <div className="flex gap-3 flex-1 min-w-0">
+                                                    <div className={`mt-1 shrink-0 ${active ? 'text-amber-400' : 'text-gray-600 group-hover:text-gray-400'} transition-colors`}>
+                                                        <Icon size={16} strokeWidth={1.5} />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className={`text-sm font-medium ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'} tracking-wide`}>{layer.name}</span>
+                                                        <span className="text-[9px] text-[var(--text-muted)] font-mono tracking-wider mt-0.5">{layer.source} · {active ? (() => {
+                                                            const fKey = FRESHNESS_MAP[layer.id];
+                                                            const freshness = fKey && data?.freshness?.[fKey];
+                                                            const rt = freshness ? relativeTime(freshness) : '';
+                                                            return rt ? <span className="text-amber-500/70">{rt}</span> : 'LIVE';
+                                                        })() : 'OFF'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    {active && (layer.count ?? 0) > 0 && (
+                                                        <span className="text-[10px] text-gray-300 font-mono">{(layer.count ?? 0).toLocaleString()}</span>
+                                                    )}
+                                                    <div className={`text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full border ${active
+                                                        ? 'border-amber-500/50 text-amber-400 bg-amber-950/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
+                                                        : 'border-[var(--border-primary)] text-[var(--text-muted)] bg-transparent'
+                                                        }`}>
+                                                        {active ? 'ON' : 'OFF'}
+                                                    </div>
+                                                    {isPP && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setPpExpanded(v => !v); }}
+                                                            className="text-[var(--text-muted)] hover:text-amber-400 transition-colors"
+                                                            title="Toggle fuel-type breakdown"
+                                                        >
+                                                            {ppExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Power plant sub-type accordion */}
+                                            {isPP && ppExpanded && (
+                                                <div className="ml-7 mt-2 flex flex-col gap-3 pl-3 border-l border-amber-500/20">
+                                                    {ppSubLayers.map((sub) => {
+                                                        const SubIcon = sub.icon;
+                                                        const subActive = activeLayers[sub.id as keyof typeof activeLayers] || false;
+                                                        return (
+                                                            <div
+                                                                key={sub.id}
+                                                                className="flex items-center justify-between group cursor-pointer"
+                                                                onClick={() => setActiveLayers((prev: any) => ({ ...prev, [sub.id]: !subActive }))}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sub.dot }} />
+                                                                    <SubIcon size={13} strokeWidth={1.5} className={subActive ? sub.color : 'text-gray-600 group-hover:text-gray-400'} />
+                                                                    <div className="flex flex-col">
+                                                                        <span className={`text-xs font-medium ${subActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{sub.name}</span>
+                                                                        <span className="text-[8px] text-[var(--text-muted)] font-mono">{sub.source}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full border ${subActive
+                                                                    ? 'border-amber-500/40 text-amber-400 bg-amber-950/20'
+                                                                    : 'border-[var(--border-primary)] text-[var(--text-muted)]'}`}>
+                                                                    {subActive ? 'ON' : 'OFF'}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </motion.div>
                     )}

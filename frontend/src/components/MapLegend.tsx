@@ -214,6 +214,119 @@ const LEGEND: LegendCategory[] = [
     },
 ];
 
+// ─── Hazard metric reference table ───────────────────────────────────────────
+
+interface HazardMetric {
+    label: string;
+    color: string;
+    unit: string;
+    source: string;
+    scale: Array<{ value: string; meaning: string }>;
+}
+
+const HAZARD_METRICS: HazardMetric[] = [
+    {
+        label: "Seismic",
+        color: "#ef4444",
+        unit: "g (PGA)",
+        source: "USGS Design Maps (US only); INFORM 2023 elsewhere",
+        scale: [
+            { value: "< 0.04g", meaning: "Negligible — stable plate interior" },
+            { value: "0.04–0.1g", meaning: "Low — minor shaking possible" },
+            { value: "0.1–0.2g", meaning: "Moderate — structural risk to older buildings" },
+            { value: "0.2–0.4g", meaning: "High — significant damage expected" },
+            { value: "> 0.4g", meaning: "Extreme — near active fault / major seismic zone" },
+        ],
+    },
+    {
+        label: "Flood",
+        color: "#60a5fa",
+        unit: "m depth (100-yr RP)",
+        source: "JRC GloFAS flood hazard map (100-year return period)",
+        scale: [
+            { value: "0 m", meaning: "No flood zone" },
+            { value: "0.1–0.3 m", meaning: "Low — ankle-deep, equipment risk" },
+            { value: "0.3–1 m", meaning: "Moderate — access disruption, basement flooding" },
+            { value: "1–2 m", meaning: "High — ground floor inundation" },
+            { value: "> 2 m", meaning: "Catastrophic — full facility loss likely" },
+        ],
+    },
+    {
+        label: "Cyclone",
+        color: "#22d3ee",
+        unit: "tracks / decade",
+        source: "NOAA IBTrACS v04r01 — tropical tracks within 200 km (last 30 yr)",
+        scale: [
+            { value: "0", meaning: "No exposure — outside cyclone belts" },
+            { value: "1–3", meaning: "Low — occasional tropical system" },
+            { value: "3–8", meaning: "Moderate — regular cyclone season risk" },
+            { value: "8–15", meaning: "High — frequent direct or near-miss tracks" },
+            { value: "> 15", meaning: "Extreme — Philippines / Bay of Bengal tier" },
+        ],
+    },
+    {
+        label: "Wildfire",
+        color: "#fb923c",
+        unit: "fire days / yr (est.)",
+        source: "NASA FIRMS MODIS C6.1 — fire detections within 50 km (7-day × 52)",
+        scale: [
+            { value: "0", meaning: "No fire activity detected" },
+            { value: "1–10", meaning: "Low — occasional brush fires" },
+            { value: "10–20", meaning: "Moderate — seasonal fire risk" },
+            { value: "20–40", meaning: "High — regular wildfire region" },
+            { value: "> 40", meaning: "Extreme — persistent fire environment" },
+        ],
+    },
+];
+
+function HazardMetricsSection() {
+    const [open, setOpen] = useState<string | null>(null);
+    return (
+        <div className="rounded-lg border border-violet-500/30 overflow-hidden">
+            <div className="px-3 py-2 bg-violet-950/30">
+                <span className="text-[9px] font-mono tracking-widest font-bold text-violet-400 border border-violet-500/30 px-2 py-0.5 rounded">
+                    DATA CENTER HAZARD METRICS
+                </span>
+            </div>
+            <div className="border-t border-violet-500/20 divide-y divide-violet-500/10">
+                {HAZARD_METRICS.map((m) => (
+                    <div key={m.label}>
+                        <button
+                            onClick={() => setOpen(open === m.label ? null : m.label)}
+                            className="w-full flex items-center gap-3 px-4 py-2 hover:bg-violet-950/20 transition-colors text-left"
+                        >
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
+                            <span className="text-[11px] font-mono text-[var(--text-secondary)] flex-1">{m.label}</span>
+                            <span className="text-[9px] font-mono text-violet-500 mr-2">{m.unit}</span>
+                            {open === m.label
+                                ? <ChevronUp size={11} className="text-violet-400 shrink-0" />
+                                : <ChevronDown size={11} className="text-[var(--text-muted)] shrink-0" />}
+                        </button>
+                        {open === m.label && (
+                            <div className="px-4 pb-3 bg-violet-950/10">
+                                <div className="text-[9px] text-violet-500 font-mono mb-2">{m.source}</div>
+                                <table className="w-full text-[10px] font-mono">
+                                    <tbody>
+                                        {m.scale.map((row) => (
+                                            <tr key={row.value} className="border-t border-violet-500/10">
+                                                <td className="py-0.5 pr-3 text-white whitespace-nowrap w-24">{row.value}</td>
+                                                <td className="py-0.5 text-[var(--text-muted)]">{row.meaning}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <div className="mt-2 text-[8px] text-violet-600 font-mono">
+                                    Raw value shown in popup when L2 enrichment has run; falls back to INFORM 2023 score (0–100) otherwise.
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 const MapLegend = React.memo(function MapLegend({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -272,6 +385,7 @@ const MapLegend = React.memo(function MapLegend({ isOpen, onClose }: { isOpen: b
 
                         {/* Legend Content */}
                         <div className="flex-1 overflow-y-auto styled-scrollbar p-4 space-y-2">
+                            <HazardMetricsSection />
                             {LEGEND.map((cat) => {
                                 const isCollapsed = collapsed.has(cat.name);
                                 return (

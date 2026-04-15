@@ -126,6 +126,7 @@ def fetch_datacenters():
             if not (-90 <= lat <= 90 and -180 <= lng <= 180):
                 continue
             dcs.append({
+                # ── Identity ──────────────────────────────────────────────
                 "name": entry.get("name", "Unknown"),
                 "company": entry.get("company", ""),
                 "street": entry.get("street", ""),
@@ -133,7 +134,19 @@ def fetch_datacenters():
                 "country": entry.get("country", ""),
                 "zip": entry.get("zip", ""),
                 "lat": lat, "lng": lng,
-                # risk enrichment fields (populated by scripts/enrich_datacenters.py)
+                # ── Layer 1: Physical asset ───────────────────────────────
+                "operator_type": entry.get("operator_type"),
+                "tier_rating": entry.get("tier_rating"),
+                "mw_capacity": entry.get("mw_capacity"),
+                "year_built": entry.get("year_built"),
+                "cooling_type": entry.get("cooling_type"),
+                "floor_level": entry.get("floor_level"),
+                # ── Layer 2: Hazard exposure ──────────────────────────────
+                "jrc_flood_100yr_m": entry.get("jrc_flood_100yr_m"),
+                "usgs_pga_10pct_50yr": entry.get("usgs_pga_10pct_50yr"),
+                "ibtracs_track_density": entry.get("ibtracs_track_density"),
+                "wildfire_days_50km": entry.get("wildfire_days_50km"),
+                "heat_extreme_days": entry.get("heat_extreme_days"),
                 "hazard_eq": entry.get("hazard_eq", 0),
                 "hazard_flood": entry.get("hazard_flood", 0),
                 "hazard_cyclone": entry.get("hazard_cyclone", 0),
@@ -144,6 +157,22 @@ def fetch_datacenters():
                 "dc_density_50km": entry.get("dc_density_50km", 0),
                 "concentration_score": entry.get("concentration_score", 0),
                 "nat_cat_score": entry.get("nat_cat_score", 0),
+                # ── Layer 3: Dependency graph ─────────────────────────────
+                "substation_osm_id": entry.get("substation_osm_id"),
+                "substation_dist_km": entry.get("substation_dist_km"),
+                "substation_cluster_id": entry.get("substation_cluster_id"),
+                "substation_shared_count": entry.get("substation_shared_count"),
+                "ixp_ids": entry.get("ixp_ids"),
+                "nearest_ixp_km": entry.get("nearest_ixp_km"),
+                "ixp_count_50km": entry.get("ixp_count_50km"),
+                "fibre_path_count": entry.get("fibre_path_count"),
+                "water_stress_idx": entry.get("water_stress_idx"),
+                "asn": entry.get("asn"),
+                # ── Layer 4: Network topology ─────────────────────────────
+                "betweenness_centrality": entry.get("betweenness_centrality"),
+                "systemic_importance_score": entry.get("systemic_importance_score"),
+                "accumulation_flag": entry.get("accumulation_flag"),
+                # ── Layer 5: Composite risk index ─────────────────────────
                 "risk_score": entry.get("risk_score", 0),
             })
         logger.info(f"Data centers: {len(dcs)} geocoded locations loaded")

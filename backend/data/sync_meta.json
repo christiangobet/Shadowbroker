@@ -1,0 +1,34 @@
+{
+  "enrich_l1_physical": {
+    "status": "success",
+    "last_run_iso": "2026-04-15T04:28:36.847631+00:00",
+    "duration_s": 42.0,
+    "coverage": {
+      "operator_type": 99.9,
+      "tier_rating": 5.3,
+      "mw_capacity": 0.0,
+      "year_built": 0.0,
+      "cooling_type": 0.0,
+      "floor_level": 0.0
+    },
+    "log_tail": "operator_type: 4892/4899 (99.9%)\ntier_rating: 259/4899 (5.3%)\nDone.",
+    "error": null
+  },
+  "enrich_l2_hazard": {
+    "status": "success",
+    "last_run_iso": "2026-04-15T05:50:38.546978+00:00",
+    "duration_s": 412.2,
+    "coverage": {
+      "jrc_flood_100yr_m": 0.0,
+      "usgs_pga_10pct_50yr": 32.1,
+      "ibtracs_track_density": 100.0,
+      "wildfire_days_50km": 100.0,
+      "hazard_eq": 100.0,
+      "hazard_flood": 100.0,
+      "hazard_cyclone": 100.0,
+      "hazard_fire": 100.0
+    },
+    "log_tail": "arsing IBTrACS CSV (this may take 20–30 s) ...\n  IBTrACS: 140,512 track points from 3,016 storms (1996–2026)\n  ibtracs_track_density set/updated: 4899\nStep 2: USGS Design Maps PGA (US sites only) ...\n  US sites to query: 1575\n    USGS progress: 100/1575 sites (101 PGA values retrieved)\n    USGS progress: 200/1575 sites (201 PGA values retrieved)\n    USGS progress: 300/1575 sites (301 PGA values retrieved)\n    USGS progress: 400/1575 sites (401 PGA values retrieved)\n    USGS progress: 500/1575 sites (501 PGA values retrieved)\n    USGS progress: 600/1575 sites (601 PGA values retrieved)\n    USGS progress: 700/1575 sites (701 PGA values retrieved)\n    USGS progress: 800/1575 sites (801 PGA values retrieved)\n    USGS progress: 900/1575 sites (901 PGA values retrieved)\n    USGS progress: 1000/1575 sites (999 PGA values retrieved)\n    USGS progress: 1100/1575 sites (1099 PGA values retrieved)\n    USGS progress: 1200/1575 sites (1198 PGA values retrieved)\n    USGS progress: 1300/1575 sites (1298 PGA values retrieved)\n    USGS progress: 1400/1575 sites (1398 PGA values retrieved)\n    USGS progress: 1500/1575 sites (1498 PGA values retrieved)\n  usgs_pga_10pct_50yr set/updated: 1571\nStep 3: NASA FIRMS wildfire density ...\n  Downloading NASA FIRMS 7-day global CSV ...\n  FIRMS: 61,612 fire detections in last 7 days\n  wildfire_days_50km set/updated: 4899\nStep 4: JRC GeoServer flood depth (100-yr RP) ...\n  JRC flood: querying 1181 grid cells via WMS GetFeatureInfo...\n  JRC flood step produced no results\n  jrc_flood_100yr_m: 0/4899 (0.0% coverage)\n  usgs_pga_10pct_50yr: 1571/4899 (32.1% coverage)\n  ibtracs_track_density: 4899/4899 (100.0% coverage)\n  wildfire_days_50km: 4899/4899 (100.0% coverage)\n  hazard_eq: 4899/4899 (100.0% coverage)\n  hazard_flood: 4899/4899 (100.0% coverage)\n  hazard_cyclone: 4899/4899 (100.0% coverage)\n  hazard_fire: 4899/4899 (100.0% coverage)\nWriting enriched data to /Users/christiangobet/CODEX/Shadowbroker/backend/data/datacenters_geocoded.json ...\nDone.",
+    "error": null
+  }
+}

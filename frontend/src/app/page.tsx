@@ -162,8 +162,13 @@ export default function Dashboard() {
     firms: false,
     internet_outages: false,
     datacenters: false,
+    hyperscalers: true,
     military_bases: false,
     power_plants: false,
+    power_plants_nuclear: false,
+    power_plants_fossil: false,
+    power_plants_renewable: false,
+    power_plants_other: false,
   });
 
   // NASA GIBS satellite imagery state

@@ -519,5 +519,75 @@ async def system_update(request: Request):
     threading.Timer(2.0, schedule_restart, args=[project_root]).start()
     return result
 
+# ---------------------------------------------------------------------------
+# Data Sync — enrichment script status + trigger
+# ---------------------------------------------------------------------------
+from services.sync_meta import get_all_status, set_running, write_result, REGISTRY_BY_ID
+import subprocess
+import sys as _sys
+import time as _time
+
+_sync_locks: dict[str, bool] = {}
+_sync_locks_mutex = threading.Lock()
+
+
+@app.get("/api/data-sync/status")
+async def data_sync_status():
+    """Return status of all enrichment scripts (registry + last run metadata)."""
+    return get_all_status()
+
+
+@app.post("/api/data-sync/run/{script_id}", dependencies=[Depends(require_admin)])
+@limiter.limit("5/minute")
+async def data_sync_run(script_id: str, request: Request):
+    """Trigger an enrichment script in the background (admin only)."""
+    if script_id not in REGISTRY_BY_ID:
+        raise HTTPException(status_code=404, detail=f"Unknown script: {script_id}")
+
+    with _sync_locks_mutex:
+        if _sync_locks.get(script_id):
+            return {"status": "already_running"}
+        _sync_locks[script_id] = True
+
+    script = REGISTRY_BY_ID[script_id]
+    set_running(script_id)
+
+    def _run():
+        t0 = _time.time()
+        log_lines: list[str] = []
+        try:
+            backend_dir = Path(__file__).parent
+            result = subprocess.run(
+                [_sys.executable, "-m", script["module"]],
+                cwd=str(backend_dir),
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            combined = result.stdout + result.stderr
+            log_lines = combined.splitlines()
+            status = "success" if result.returncode == 0 else "error"
+            error = None if result.returncode == 0 else f"Exit code {result.returncode}"
+            write_result(
+                script_id,
+                status=status,
+                duration_s=_time.time() - t0,
+                log_tail="\n".join(log_lines[-40:]),
+                error=error,
+            )
+        except subprocess.TimeoutExpired:
+            write_result(script_id, status="error", duration_s=_time.time() - t0,
+                         error="Timed out after 600s")
+        except Exception as exc:
+            write_result(script_id, status="error", duration_s=_time.time() - t0,
+                         error=str(exc))
+        finally:
+            with _sync_locks_mutex:
+                _sync_locks[script_id] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "started"}
+
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

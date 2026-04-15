@@ -183,45 +183,178 @@ export function buildDataCentersGeoJSON(datacenters?: DataCenter[]): FC {
             properties: {
                 id: `dc-${i}`,
                 type: 'datacenter',
+                // ── Identity ────────────────────────────────────────────
                 name: dc.name || 'Unknown',
                 company: dc.company || '',
                 street: dc.street || '',
                 city: dc.city || '',
                 country: dc.country || '',
                 zip: dc.zip || '',
-                risk_score: dc.risk_score ?? 0,
+                // ── Layer 1: Physical asset ──────────────────────────────
+                operator_type: dc.operator_type ?? null,
+                tier_rating: dc.tier_rating ?? null,
+                mw_capacity: dc.mw_capacity ?? null,
+                year_built: dc.year_built ?? null,
+                cooling_type: dc.cooling_type ?? null,
+                floor_level: dc.floor_level ?? null,
+                // ── Layer 2: Hazard exposure ──────────────────────────────
+                jrc_flood_100yr_m: dc.jrc_flood_100yr_m ?? null,
+                usgs_pga_10pct_50yr: dc.usgs_pga_10pct_50yr ?? null,
+                ibtracs_track_density: dc.ibtracs_track_density ?? null,
+                wildfire_days_50km: dc.wildfire_days_50km ?? null,
+                heat_extreme_days: dc.heat_extreme_days ?? null,
+                hazard_eq: dc.hazard_eq ?? 0,
+                hazard_flood: dc.hazard_flood ?? 0,
+                hazard_cyclone: dc.hazard_cyclone ?? 0,
+                hazard_fire: dc.hazard_fire ?? 0,
                 nat_cat_score: dc.nat_cat_score ?? 0,
                 grid_score: dc.grid_score ?? 0,
                 concentration_score: dc.concentration_score ?? 0,
                 dc_density_50km: dc.dc_density_50km ?? 0,
                 nearest_plant_km: dc.nearest_plant_km ?? null,
                 nearest_plant_fuel: dc.nearest_plant_fuel ?? '',
+                // ── Layer 3: Dependency graph ─────────────────────────────
+                substation_osm_id: dc.substation_osm_id ?? null,
+                substation_dist_km: dc.substation_dist_km ?? null,
+                substation_cluster_id: dc.substation_cluster_id ?? null,
+                substation_shared_count: dc.substation_shared_count ?? null,
+                ixp_ids: dc.ixp_ids ?? null,
+                nearest_ixp_km: dc.nearest_ixp_km ?? null,
+                ixp_count_50km: dc.ixp_count_50km ?? null,
+                fibre_path_count: dc.fibre_path_count ?? null,
+                water_stress_idx: dc.water_stress_idx ?? null,
+                asn: dc.asn ?? null,
+                // ── Layer 4: Network topology ─────────────────────────────
+                betweenness_centrality: dc.betweenness_centrality ?? null,
+                systemic_importance_score: dc.systemic_importance_score ?? null,
+                accumulation_flag: dc.accumulation_flag ?? null,
+                // ── Layer 5: Composite risk index ─────────────────────────
+                risk_score: dc.risk_score ?? 0,
             },
             geometry: { type: 'Point' as const, coordinates: [dc.lng, dc.lat] }
         }))
     };
 }
 
+// ─── Hyperscalers ──────────────────────────────────────────────────────────
+
+// Brand colours keyed on lowercased company name tokens
+const _HYPERSCALER_COLORS: Array<[string[], string]> = [
+    [["amazon", "aws"],                              "#FF9900"],
+    [["google", "alphabet"],                         "#4285F4"],
+    [["microsoft", "azure"],                         "#00B4F0"],
+    [["meta", "facebook"],                           "#1877F2"],
+    [["apple"],                                      "#A2AAAD"],
+    [["ibm", "softlayer"],                           "#006699"],
+    [["alibaba", "aliyun"],                          "#FF6A00"],
+    [["tencent"],                                    "#07C160"],
+    [["huawei"],                                     "#CF0A2C"],
+    [["oracle"],                                     "#C74634"],
+    [["cloudflare"],                                 "#F48120"],
+    [["akamai"],                                     "#009BDE"],
+    [["baidu"],                                      "#2932E1"],
+    [["bytedance", "tiktok"],                        "#69C9D0"],
+    [["salesforce"],                                 "#00A1E0"],
+    [["fastly"],                                     "#FF282D"],
+];
+
+function _hyperscalerColor(company: string): string {
+    const lower = (company || "").toLowerCase();
+    for (const [tokens, color] of _HYPERSCALER_COLORS) {
+        if (tokens.some(t => lower.includes(t))) return color;
+    }
+    return "#a78bfa"; // fallback violet
+}
+
+export function buildHyperscalersGeoJSON(datacenters?: DataCenter[]): FC {
+    const hs = datacenters?.filter(dc => dc.operator_type === "hyperscaler");
+    if (!hs?.length) return null;
+    return {
+        type: "FeatureCollection",
+        features: hs.map((dc, i) => ({
+            type: "Feature" as const,
+            properties: {
+                id: `hs-${i}`,
+                type: "datacenter",
+                name: dc.name || "Unknown",
+                company: dc.company || "",
+                city: dc.city || "",
+                country: dc.country || "",
+                street: dc.street || "",
+                zip: dc.zip || "",
+                lat: dc.lat,
+                lng: dc.lng,
+                operator_type: "hyperscaler",
+                tier_rating: dc.tier_rating ?? null,
+                mw_capacity: dc.mw_capacity ?? null,
+                year_built: dc.year_built ?? null,
+                cooling_type: dc.cooling_type ?? null,
+                floor_level: dc.floor_level ?? null,
+                jrc_flood_100yr_m: dc.jrc_flood_100yr_m ?? null,
+                usgs_pga_10pct_50yr: dc.usgs_pga_10pct_50yr ?? null,
+                ibtracs_track_density: dc.ibtracs_track_density ?? null,
+                wildfire_days_50km: dc.wildfire_days_50km ?? null,
+                hazard_eq: dc.hazard_eq ?? 0,
+                hazard_flood: dc.hazard_flood ?? 0,
+                hazard_cyclone: dc.hazard_cyclone ?? 0,
+                hazard_fire: dc.hazard_fire ?? 0,
+                nat_cat_score: dc.nat_cat_score ?? 0,
+                grid_score: dc.grid_score ?? 0,
+                concentration_score: dc.concentration_score ?? 0,
+                dc_density_50km: dc.dc_density_50km ?? 0,
+                nearest_plant_km: dc.nearest_plant_km ?? null,
+                nearest_plant_fuel: dc.nearest_plant_fuel ?? "",
+                risk_score: dc.risk_score ?? 0,
+                // Layer-specific
+                brand_color: _hyperscalerColor(dc.company || ""),
+                label: dc.company
+                    ? dc.company.replace(/\s*(Technologies|Holdings|Group|Inc\.?|Ltd\.?|LLC\.?|Corp\.?)\s*/gi, "").trim()
+                    : dc.name || "Unknown",
+            },
+            geometry: { type: "Point" as const, coordinates: [dc.lng, dc.lat] },
+        })),
+    };
+}
+
 // ─── Power Plants ──────────────────────────────────────────────────────────
 
-export function buildPowerPlantsGeoJSON(plants?: PowerPlant[]): FC {
+const _FOSSIL_FUELS = new Set(["Coal", "Gas", "Oil", "Petcoke", "Cogeneration"]);
+const _RENEWABLE_FUELS = new Set(["Solar", "Wind", "Hydro", "Geothermal", "Wave and Tidal"]);
+const _NUCLEAR_FUELS = new Set(["Nuclear"]);
+
+export function fuelGroup(fuelType: string): "nuclear" | "fossil" | "renewable" | "other" {
+    if (_NUCLEAR_FUELS.has(fuelType)) return "nuclear";
+    if (_FOSSIL_FUELS.has(fuelType)) return "fossil";
+    if (_RENEWABLE_FUELS.has(fuelType)) return "renewable";
+    return "other";
+}
+
+export function buildPowerPlantsGeoJSON(
+    plants?: PowerPlant[],
+    activeGroups?: { all: boolean; nuclear: boolean; fossil: boolean; renewable: boolean; other: boolean },
+): FC {
     if (!plants?.length) return null;
-    return {
-        type: 'FeatureCollection',
-        features: plants.map((p, i) => ({
-            type: 'Feature' as const,
-            properties: {
-                id: `pp-${i}`,
-                type: 'power_plant',
-                name: p.name || 'Unknown',
-                country: p.country || '',
-                fuel_type: p.fuel_type || 'Unknown',
-                capacity_mw: p.capacity_mw ?? 0,
-                owner: p.owner || '',
-            },
-            geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] }
-        }))
-    };
+    const features = plants
+        .map((p, i) => {
+            const group = fuelGroup(p.fuel_type || "");
+            if (activeGroups && !activeGroups.all && !activeGroups[group]) return null;
+            return {
+                type: 'Feature' as const,
+                properties: {
+                    id: `pp-${i}`,
+                    type: 'power_plant',
+                    name: p.name || 'Unknown',
+                    country: p.country || '',
+                    fuel_type: p.fuel_type || 'Unknown',
+                    fuel_group: group,
+                    capacity_mw: p.capacity_mw ?? 0,
+                    owner: p.owner || '',
+                },
+                geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+            };
+        })
+        .filter(Boolean) as GeoJSON.Feature[];
+    return features.length ? { type: 'FeatureCollection', features } : null;
 }
 
 // ─── Military Bases ─────────────────────────────────────────────────────────
