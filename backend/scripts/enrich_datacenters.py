@@ -205,9 +205,9 @@ def enrich(dc_path: Path = DC_PATH, pp_path: Path = PP_PATH) -> list[dict]:
             logger.info(f"Enriched {i+1}/{len(valid_dcs)} DCs")
 
     logger.info(f"Writing enriched data to {dc_path}...")
-    dc_path.write_text(json.dumps(valid_dcs, ensure_ascii=False), encoding="utf-8")
+    dc_path.write_text(json.dumps(dcs, ensure_ascii=False), encoding="utf-8")
     logger.info("Done.")
-    return valid_dcs
+    return dcs
 
 
 if __name__ == "__main__":
