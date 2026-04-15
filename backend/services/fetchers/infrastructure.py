@@ -133,6 +133,18 @@ def fetch_datacenters():
                 "country": entry.get("country", ""),
                 "zip": entry.get("zip", ""),
                 "lat": lat, "lng": lng,
+                # risk enrichment fields (populated by scripts/enrich_datacenters.py)
+                "hazard_eq": entry.get("hazard_eq", 0),
+                "hazard_flood": entry.get("hazard_flood", 0),
+                "hazard_cyclone": entry.get("hazard_cyclone", 0),
+                "hazard_fire": entry.get("hazard_fire", 0),
+                "nearest_plant_km": entry.get("nearest_plant_km"),
+                "nearest_plant_fuel": entry.get("nearest_plant_fuel", ""),
+                "grid_score": entry.get("grid_score", 0),
+                "dc_density_50km": entry.get("dc_density_50km", 0),
+                "concentration_score": entry.get("concentration_score", 0),
+                "nat_cat_score": entry.get("nat_cat_score", 0),
+                "risk_score": entry.get("risk_score", 0),
             })
         logger.info(f"Data centers: {len(dcs)} geocoded locations loaded")
     except Exception as e:

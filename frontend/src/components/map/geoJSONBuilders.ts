@@ -189,6 +189,13 @@ export function buildDataCentersGeoJSON(datacenters?: DataCenter[]): FC {
                 city: dc.city || '',
                 country: dc.country || '',
                 zip: dc.zip || '',
+                risk_score: dc.risk_score ?? 0,
+                nat_cat_score: dc.nat_cat_score ?? 0,
+                grid_score: dc.grid_score ?? 0,
+                concentration_score: dc.concentration_score ?? 0,
+                dc_density_50km: dc.dc_density_50km ?? 0,
+                nearest_plant_km: dc.nearest_plant_km ?? null,
+                nearest_plant_fuel: dc.nearest_plant_fuel ?? '',
             },
             geometry: { type: 'Point' as const, coordinates: [dc.lng, dc.lat] }
         }))

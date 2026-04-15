@@ -230,6 +230,18 @@ export interface DataCenter {
   zip?: string;
   lat: number;
   lng: number;
+  // Risk enrichment fields
+  hazard_eq?: number;
+  hazard_flood?: number;
+  hazard_cyclone?: number;
+  hazard_fire?: number;
+  nearest_plant_km?: number | null;
+  nearest_plant_fuel?: string;
+  grid_score?: number;
+  dc_density_50km?: number;
+  concentration_score?: number;
+  nat_cat_score?: number;
+  risk_score?: number;
 }
 
 export interface PowerPlant {
