@@ -263,6 +263,28 @@ def fetch_datacenters():
                     "zip": entry.get("zip", ""),
                     "lat": lat,
                     "lng": lng,
+                    # Operator classification
+                    "operator_type": entry.get("operator_type", ""),
+                    # Physical attributes
+                    "tier_rating": entry.get("tier_rating"),
+                    "mw_capacity": entry.get("mw_capacity"),
+                    "year_built": entry.get("year_built"),
+                    "cooling_type": entry.get("cooling_type", ""),
+                    # Risk scores
+                    "risk_score": entry.get("risk_score", 0),
+                    "nat_cat_score": entry.get("nat_cat_score", 0),
+                    "grid_score": entry.get("grid_score", 0),
+                    "concentration_score": entry.get("concentration_score", 0),
+                    # Natural hazard sub-scores
+                    "hazard_eq": entry.get("hazard_eq", 0),
+                    "hazard_flood": entry.get("hazard_flood", 0),
+                    "hazard_cyclone": entry.get("hazard_cyclone", 0),
+                    "hazard_fire": entry.get("hazard_fire", 0),
+                    # Power proximity
+                    "nearest_plant_km": entry.get("nearest_plant_km"),
+                    "nearest_plant_fuel": entry.get("nearest_plant_fuel", ""),
+                    # Density
+                    "dc_density_50km": entry.get("dc_density_50km", 0),
                 }
             )
         logger.info(f"Data centers: {len(dcs)} geocoded locations loaded")
