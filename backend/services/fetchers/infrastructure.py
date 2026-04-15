@@ -238,7 +238,7 @@ def fetch_datacenters():
     """Load geocoded data centers (5K+ street-level precise locations)."""
     from services.fetchers._store import is_any_active
 
-    if not is_any_active("datacenters"):
+    if not is_any_active("datacenters", "hyperscalers"):
         return
     dcs = []
     try:

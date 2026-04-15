@@ -1345,6 +1345,12 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
                               for (const id of sectionLayerIds as Array<keyof ActiveLayers>) {
                                 next[id] = !allOn;
                               }
+                              if (sectionLayerIds.includes('power_plants')) {
+                                next.power_plants_nuclear = !allOn;
+                                next.power_plants_fossil = !allOn;
+                                next.power_plants_renewable = !allOn;
+                                next.power_plants_other = !allOn;
+                              }
                               return next;
                             });
                           }}
@@ -1378,12 +1384,24 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
                               <div key={layer.id} className="flex flex-col">
                                 <div
                                   className="flex items-start justify-between group cursor-pointer"
-                                  onClick={() =>
-                                    setActiveLayers((prev: ActiveLayers) => ({
-                                      ...prev,
-                                      [layer.id]: !active,
-                                    }))
-                                  }
+                                  onClick={() => {
+                                    if (layer.id === 'power_plants') {
+                                      const next = !active;
+                                      setActiveLayers((prev: ActiveLayers) => ({
+                                        ...prev,
+                                        power_plants: next,
+                                        power_plants_nuclear: next,
+                                        power_plants_fossil: next,
+                                        power_plants_renewable: next,
+                                        power_plants_other: next,
+                                      }));
+                                    } else {
+                                      setActiveLayers((prev: ActiveLayers) => ({
+                                        ...prev,
+                                        [layer.id]: !active,
+                                      }));
+                                    }
+                                  }}
                                 >
                                   <div className="flex gap-3">
                                     <div
