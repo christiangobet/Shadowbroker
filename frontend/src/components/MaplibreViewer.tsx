@@ -51,6 +51,10 @@ import {
   svgDrone,
   svgDataCenter,
   svgPowerPlant,
+  svgPowerPlantNuclear,
+  svgPowerPlantFossil,
+  svgPowerPlantRenewable,
+  svgPowerPlantOther,
   svgRadioTower,
   svgShipGray,
   svgShipRed,
@@ -185,6 +189,8 @@ import {
   buildUkraineAlertLabelsGeoJSON,
   buildWeatherAlertsGeoJSON,
   buildWeatherAlertLabelsGeoJSON,
+  buildHyperscalersGeoJSON,
+  fuelGroup,
   type FlightLayerConfig,
 } from '@/components/map/geoJSONBuilders';
 
@@ -1067,8 +1073,12 @@ const MaplibreViewer = ({
       loadImg('fire-cluster-xl', svgFireClusterXL);
       // Data center icon
       loadImg('datacenter', svgDataCenter);
-      // Power plant icon
+      // Power plant icons (generic + per-type)
       loadImg('power-plant', svgPowerPlant);
+      loadImg('pp-nuclear', svgPowerPlantNuclear);
+      loadImg('pp-fossil', svgPowerPlantFossil);
+      loadImg('pp-renewable', svgPowerPlantRenewable);
+      loadImg('pp-other', svgPowerPlantOther);
       // Satellite mission-type icons
       loadImg('sat-mil', makeSatSvg('#ff3333'));
       loadImg('sat-sar', makeSatSvg('#00e5ff'));
@@ -1395,6 +1405,31 @@ const MaplibreViewer = ({
     [activeLayers.ships_military, data?.ships],
   );
 
+  const hyperscalersGeoJSON = useMemo(
+    () => (activeLayers.hyperscalers ? buildHyperscalersGeoJSON(data?.datacenters) : null),
+    [activeLayers.hyperscalers, data?.datacenters],
+  );
+
+  const powerPlantsTypedGeoJSON = useMemo(() => {
+    if (!activeLayers.power_plants && !activeLayers.power_plants_nuclear &&
+        !activeLayers.power_plants_fossil && !activeLayers.power_plants_renewable &&
+        !activeLayers.power_plants_other) return null;
+    const plants = data?.power_plants;
+    if (!plants?.length) return null;
+    return {
+      type: 'FeatureCollection' as const,
+      features: plants.map((p: any, i: number) => {
+        const group = fuelGroup(p.fuel_type || '');
+        if (!activeLayers.power_plants && !activeLayers[`power_plants_${group}` as keyof typeof activeLayers]) return null;
+        return {
+          type: 'Feature' as const,
+          properties: { id: `pp-${i}`, type: 'power_plant', name: p.name || 'Unknown', fuel_group: group, fuel_type: p.fuel_type || '', capacity_mw: p.capacity_mw ?? 0, country: p.country || '' },
+          geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+        };
+      }).filter(Boolean) as GeoJSON.Feature[],
+    };
+  }, [activeLayers.power_plants, activeLayers.power_plants_nuclear, activeLayers.power_plants_fossil, activeLayers.power_plants_renewable, activeLayers.power_plants_other, data?.power_plants]);
+
   const getSelectedEntityLiveCoords = useCallback(
     (entity: ReturnType<typeof findSelectedEntity>): [number, number] | null => {
       if (!entity || entity.lat == null || entity.lng == null) return null;
@@ -1586,6 +1621,11 @@ const MaplibreViewer = ({
     internetOutagesGeoJSON && 'internet-outages-layer',
     dataCentersGeoJSON && 'datacenters-layer',
     powerPlantsGeoJSON && 'power-plants-layer',
+    hyperscalersGeoJSON && 'hyperscalers-circle',
+    powerPlantsTypedGeoJSON && 'power-plants-nuclear',
+    powerPlantsTypedGeoJSON && 'power-plants-fossil',
+    powerPlantsTypedGeoJSON && 'power-plants-renewable',
+    powerPlantsTypedGeoJSON && 'power-plants-other',
     viirsChangeNodesGeoJSON && 'viirs-change-nodes-layer',
     shodanGeoJSON && 'shodan-clusters',
     shodanGeoJSON && 'shodan-cluster-count',
@@ -2674,7 +2714,7 @@ const MaplibreViewer = ({
                         'text-color': '#fde68a',
                     }}
                 />
-                {/* Individual power plant icons */}
+                {/* Individual power plant icons — generic fallback */}
                 <Layer
                     id="power-plants-layer"
                     type="symbol"
@@ -2697,6 +2737,37 @@ const MaplibreViewer = ({
                         'text-halo-width': 1,
                     }}
                 />
+            </Source>
+        )}
+
+        {/* Power Plants — per-type typed icons */}
+        {powerPlantsTypedGeoJSON && (
+            <Source id="power-plants-typed" type="geojson" data={powerPlantsTypedGeoJSON as any} cluster={false}>
+                <Layer id="power-plants-nuclear" type="symbol"
+                    filter={['==', ['get', 'fuel_group'], 'nuclear']}
+                    layout={{ 'icon-image': 'pp-nuclear', 'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2], 'icon-allow-overlap': true, 'icon-ignore-placement': true }} />
+                <Layer id="power-plants-fossil" type="symbol"
+                    filter={['==', ['get', 'fuel_group'], 'fossil']}
+                    layout={{ 'icon-image': 'pp-fossil', 'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2], 'icon-allow-overlap': true, 'icon-ignore-placement': true }} />
+                <Layer id="power-plants-renewable" type="symbol"
+                    filter={['==', ['get', 'fuel_group'], 'renewable']}
+                    layout={{ 'icon-image': 'pp-renewable', 'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2], 'icon-allow-overlap': true, 'icon-ignore-placement': true }} />
+                <Layer id="power-plants-other" type="symbol"
+                    filter={['==', ['get', 'fuel_group'], 'other']}
+                    layout={{ 'icon-image': 'pp-other', 'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85, 10, 1.2], 'icon-allow-overlap': true, 'icon-ignore-placement': true }} />
+            </Source>
+        )}
+
+        {/* Hyperscalers (AWS / Google / Azure / Meta / Apple / IBM) */}
+        {hyperscalersGeoJSON && (
+            <Source id="hyperscalers" type="geojson" data={hyperscalersGeoJSON as any}>
+                <Layer id="hyperscalers-halo" type="circle"
+                    paint={{ 'circle-radius': 14, 'circle-color': ['get', 'brand_color'], 'circle-opacity': 0.15, 'circle-stroke-width': 1.5, 'circle-stroke-color': ['get', 'brand_color'] }} />
+                <Layer id="hyperscalers-circle" type="circle"
+                    paint={{ 'circle-radius': 6, 'circle-color': ['get', 'brand_color'], 'circle-opacity': 0.9, 'circle-stroke-width': 1, 'circle-stroke-color': '#000' }} />
+                <Layer id="hyperscalers-label" type="symbol"
+                    layout={{ 'text-field': ['step', ['zoom'], '', 5, ['get', 'company']], 'text-font': ['Noto Sans Bold'], 'text-size': 9, 'text-offset': [0, 1.6], 'text-anchor': 'top', 'text-allow-overlap': false }}
+                    paint={{ 'text-color': ['get', 'brand_color'], 'text-halo-color': 'rgba(0,0,0,0.9)', 'text-halo-width': 1 }} />
             </Source>
         )}
 
