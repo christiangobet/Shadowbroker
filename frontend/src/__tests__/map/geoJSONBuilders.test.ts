@@ -7,6 +7,11 @@ import {
   buildFirmsGeoJSON,
   buildInternetOutagesGeoJSON,
   buildDataCentersGeoJSON,
+  buildDcFloodZonesGeoJSON,
+  buildDcPowerDependenciesGeoJSON,
+  buildDcNetworkDependenciesGeoJSON,
+  buildDcAccumulationClustersGeoJSON,
+  buildDcCycloneTracksGeoJSON,
   buildGdeltGeoJSON,
   buildLiveuaGeoJSON,
   buildFrontlineGeoJSON,
@@ -274,6 +279,42 @@ describe('buildFirmsGeoJSON', () => {
     const result = buildFirmsGeoJSON(fires);
     expect(result!.features[0].properties?.daynight).toBe('Day');
     expect(result!.features[1].properties?.daynight).toBe('Night');
+  });
+});
+
+describe('dc risk overlay builders', () => {
+  it('builds flood zone overlay feature collections', () => {
+    const floodFeatures = [
+      {
+        type: 'Feature' as const,
+        properties: { zone: 'AE' },
+        geometry: { type: 'Point' as const, coordinates: [-75, 40] },
+      },
+    ];
+
+    const result = buildDcFloodZonesGeoJSON(floodFeatures);
+
+    expect(result).not.toBeNull();
+    expect(result!.features).toHaveLength(1);
+    expect(result!.features[0].properties?.zone).toBe('AE');
+  });
+
+  it('builds power/network/cluster/cyclone overlays', () => {
+    const lineFeature = {
+      type: 'Feature' as const,
+      properties: { id: 'line-1' },
+      geometry: { type: 'LineString' as const, coordinates: [[-75, 40], [-75.01, 40.01]] },
+    };
+    const pointFeature = {
+      type: 'Feature' as const,
+      properties: { id: 'cluster-1' },
+      geometry: { type: 'Point' as const, coordinates: [-75, 40] },
+    };
+
+    expect(buildDcPowerDependenciesGeoJSON([lineFeature])?.features).toHaveLength(1);
+    expect(buildDcNetworkDependenciesGeoJSON([lineFeature])?.features).toHaveLength(1);
+    expect(buildDcAccumulationClustersGeoJSON([pointFeature])?.features).toHaveLength(1);
+    expect(buildDcCycloneTracksGeoJSON([lineFeature])?.features).toHaveLength(1);
   });
 });
 

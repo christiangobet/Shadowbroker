@@ -379,6 +379,10 @@ The first decentralized intelligence communication layer built directly into an 
 | [OpenAQ](https://openaq.org) | Air quality PM2.5 stations | ~120s | No |
 | NOAA / NWS | Severe weather alerts & polygons | ~120s | No |
 | [WRI Global Power Plant DB](https://datasets.wri.org) | 35,000+ power plants | Static (cached) | No |
+| [OpenStreetMap / Overpass](https://www.openstreetmap.org) | Data center / substation geometry & geocoding support | Cached sync jobs | No |
+| [FEMA NFHL](https://www.fema.gov/flood-maps/national-flood-hazard-layer) | US flood-zone overlays for data center risk | Periodic sync | No |
+| [PeeringDB](https://www.peeringdb.com) | IXP / facility dependency mapping | Periodic sync | No |
+| [RIPEstat](https://stat.ripe.net) | ASN and routing metadata for dependency scoring | Periodic sync | No |
 | Military base datasets | Global military installations | Static (cached) | No |
 | [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov) | NOAA-20 VIIRS fire/thermal hotspots | ~120s | No |
 | [NOAA SWPC](https://services.swpc.noaa.gov) | Space weather Kp index & solar events | ~120s | No |
@@ -394,6 +398,16 @@ The first decentralized intelligence communication layer built directly into an 
 | [Wikipedia API](https://en.wikipedia.org/api) | Location summaries & aircraft images | On-demand (cached) | No |
 | [OSM Nominatim](https://nominatim.openstreetmap.org) | Place name geocoding (LOCATE bar) | On-demand | No |
 | [CARTO Basemaps](https://carto.com) | Dark map tiles | Continuous | No |
+
+---
+
+### Data Center Risk Layer Attribution
+
+The underwriting-focused data center accumulation overlays use open datasets only. Please retain source attribution if you redistribute screenshots, derived databases, or exports that include these layers.
+
+- OpenStreetMap / Overpass data is licensed under ODbL and requires attribution.
+- FEMA NFHL, USGS, NASA FIRMS, NOAA IBTrACS, PeeringDB, RIPEstat, and WRI datasets power the flood, hazard, grid, and network dependency overlays.
+- Copernicus / ERA5-derived enrichments remain optional and require user-provided credentials where applicable.
 
 ---
 

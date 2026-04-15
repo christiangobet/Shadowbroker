@@ -54,6 +54,82 @@ class TestLiveDataEndpoints:
             for key in ("news", "stocks", "weather", "earthquakes"):
                 assert key in data, f"Missing key: {key}"
 
+    def test_slow_includes_dc_risk_overlays_and_full_datacenter_contract(self, client, monkeypatch):
+        from services.fetchers import _store
+
+        datacenter = {
+            "name": "DC Overlay Test",
+            "company": "Example Cloud",
+            "lat": 40.0,
+            "lng": -75.0,
+            "hazard_eq": 50,
+            "hazard_flood": 60,
+            "hazard_cyclone": 20,
+            "hazard_fire": 10,
+            "jrc_flood_100yr_m": 1.1,
+            "fema_flood_zone": "AE",
+            "substation_osm_id": "sub-east",
+            "substation_shared_count": 3,
+            "ixp_ids": ["1001"],
+            "ixp_count_50km": 1,
+            "asn": "AS64500",
+            "betweenness_centrality": 0.75,
+            "systemic_importance_score": 82.0,
+            "accumulation_flag": True,
+            "risk_score": 71.0,
+        }
+        overlays = {
+            "dc_flood_zones": [{"type": "Feature", "properties": {"zone": "AE"}, "geometry": {"type": "Polygon", "coordinates": []}}],
+            "dc_power_dependencies": [{"type": "Feature", "properties": {"substation_osm_id": "sub-east"}, "geometry": {"type": "LineString", "coordinates": [[-75.0, 40.0], [-75.01, 40.01]]}}],
+            "dc_network_dependencies": [{"type": "Feature", "properties": {"ixp_id": "1001"}, "geometry": {"type": "LineString", "coordinates": [[-75.0, 40.0], [-75.02, 40.02]]}}],
+            "dc_accumulation_clusters": [{"type": "Feature", "properties": {"cluster_id": "sub-east"}, "geometry": {"type": "Point", "coordinates": [-75.0, 40.0]}}],
+            "dc_cyclone_tracks": [{"type": "Feature", "properties": {"storm_id": "AL01"}, "geometry": {"type": "LineString", "coordinates": [[-70.0, 30.0], [-71.0, 31.0]]}}],
+        }
+
+        monkeypatch.setitem(_store.latest_data, "datacenters", [datacenter])
+        for key, value in overlays.items():
+            monkeypatch.setitem(_store.latest_data, key, value)
+        monkeypatch.setitem(_store.active_layers, "datacenters", True)
+        monkeypatch.setitem(_store.active_layers, "dc_flood", True)
+        monkeypatch.setitem(_store.active_layers, "dc_power_dependencies", True)
+        monkeypatch.setitem(_store.active_layers, "dc_network_dependencies", True)
+        monkeypatch.setitem(_store.active_layers, "dc_accumulation", True)
+        monkeypatch.setitem(_store.active_layers, "dc_cyclone_history", True)
+
+        r = client.get("/api/live-data/slow")
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["datacenters"][0]["substation_osm_id"] == "sub-east"
+        assert data["datacenters"][0]["ixp_ids"] == ["1001"]
+        assert data["datacenters"][0]["systemic_importance_score"] == 82.0
+        assert data["datacenters"][0]["accumulation_flag"] is True
+        for key in overlays:
+            assert key in data
+            assert data[key] == overlays[key]
+
+    def test_datacenter_risk_summary_endpoint_returns_aggregate_metrics(self, client, monkeypatch):
+        from services.fetchers import _store
+
+        monkeypatch.setitem(
+            _store.latest_data,
+            "datacenters",
+            [
+                {"name": "A", "risk_score": 80, "accumulation_flag": True, "fema_flood_zone": "AE"},
+                {"name": "B", "risk_score": 55, "accumulation_flag": False, "fema_flood_zone": None},
+                {"name": "C", "risk_score": 20, "accumulation_flag": True, "fema_flood_zone": "X"},
+            ],
+        )
+
+        r = client.get("/api/risk-summary/datacenters")
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total_datacenters"] == 3
+        assert data["high_risk_count"] == 1
+        assert data["accumulation_flagged_count"] == 2
+        assert data["flood_zone_count"] == 2
+
     def test_fast_returns_full_world_payload_and_filters_disabled_sigint_sources(self, client, monkeypatch):
         from services.fetchers import _store
 

@@ -797,6 +797,7 @@ def _http_peer_push_loop() -> None:
 
 _GATE_PULL_INTERVAL_S = 10
 _gate_pull_last_count: dict[str, dict[str, int]] = {}  # peer → {gate_id → known count}
+_gate_pull_fail_count: dict[str, int] = {}  # peer → consecutive failure count
 
 
 def _http_gate_pull_loop() -> None:
@@ -914,7 +915,20 @@ def _http_gate_pull_loop() -> None:
                         peer_counts[gate_id] = effective_cursor + len(events)
 
                 except Exception as exc:
-                    logger.warning("Gate pull from %s failed: %s", normalized[:40], exc)
+                    fails = _gate_pull_fail_count.get(normalized, 0) + 1
+                    _gate_pull_fail_count[normalized] = fails
+                    # Connection/timeout errors are expected when a peer is offline.
+                    # Log at WARNING only on the 1st failure and every 60th after that
+                    # (≈ every 10 minutes); all others are DEBUG to avoid log spam.
+                    exc_str = str(exc)
+                    is_conn_err = any(k in exc_str for k in ("ConnectTimeout", "ConnectionError", "Max retries", "timed out"))
+                    if is_conn_err and fails > 1 and fails % 60 != 0:
+                        logger.debug("Gate pull from %s offline (%d): %s", normalized[:40], fails, exc_str[:80])
+                    else:
+                        logger.warning("Gate pull from %s failed: %s", normalized[:40], exc)
+                else:
+                    # Successful pull — reset failure counter
+                    _gate_pull_fail_count[normalized] = 0
 
         except Exception:
             logger.exception("HTTP gate pull loop error")
@@ -2692,6 +2706,11 @@ async def live_data_slow(
         "internet_outages",
         "firms_fires",
         "datacenters",
+        "dc_flood_zones",
+        "dc_power_dependencies",
+        "dc_network_dependencies",
+        "dc_accumulation_clusters",
+        "dc_cyclone_tracks",
         "military_bases",
         "power_plants",
         "viirs_change_nodes",
@@ -2733,6 +2752,11 @@ async def live_data_slow(
         "internet_outages": (d.get("internet_outages") or []) if active_layers.get("internet_outages", True) else [],
         "firms_fires": (d.get("firms_fires") or []) if active_layers.get("firms", True) else [],
         "datacenters": (d.get("datacenters") or []) if (active_layers.get("datacenters", True) or active_layers.get("hyperscalers")) else [],
+        "dc_flood_zones": (d.get("dc_flood_zones") or []) if active_layers.get("dc_flood", False) else [],
+        "dc_power_dependencies": (d.get("dc_power_dependencies") or []) if active_layers.get("dc_power_dependencies", False) else [],
+        "dc_network_dependencies": (d.get("dc_network_dependencies") or []) if active_layers.get("dc_network_dependencies", False) else [],
+        "dc_accumulation_clusters": (d.get("dc_accumulation_clusters") or []) if active_layers.get("dc_accumulation", False) else [],
+        "dc_cyclone_tracks": (d.get("dc_cyclone_tracks") or []) if active_layers.get("dc_cyclone_history", False) else [],
         "military_bases": (d.get("military_bases") or []) if active_layers.get("military_bases", True) else [],
         "power_plants": (d.get("power_plants") or []) if (active_layers.get("power_plants", True) or active_layers.get("power_plants_nuclear") or active_layers.get("power_plants_fossil") or active_layers.get("power_plants_renewable") or active_layers.get("power_plants_other")) else [],
         "viirs_change_nodes": (d.get("viirs_change_nodes") or []) if active_layers.get("viirs_nightlights", True) else [],
@@ -2754,6 +2778,17 @@ async def live_data_slow(
         media_type="application/json",
         headers={"ETag": etag, "Cache-Control": "no-cache"},
     )
+
+
+@app.get("/api/risk-summary/datacenters")
+@limiter.limit("60/minute")
+async def datacenter_risk_summary(request: Request):
+    from services.fetchers._store import get_latest_data_subset
+    from services.dc_risk import compute_datacenter_risk_summary
+
+    data = get_latest_data_subset("datacenters")
+    summary = compute_datacenter_risk_summary(data.get("datacenters") or [])
+    return JSONResponse(summary)
 
 
 @app.get("/api/oracle/region-intel")

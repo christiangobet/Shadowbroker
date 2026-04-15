@@ -10,6 +10,7 @@ from services.network_utils import fetch_with_curl
 from services.fetchers._store import latest_data, _data_lock, _mark_fresh
 from services.fetchers.retry import with_retry
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -238,7 +239,15 @@ def fetch_datacenters():
     """Load geocoded data centers (5K+ street-level precise locations)."""
     from services.fetchers._store import is_any_active
 
-    if not is_any_active("datacenters", "hyperscalers"):
+    if not is_any_active(
+        "datacenters",
+        "hyperscalers",
+        "dc_flood",
+        "dc_power_dependencies",
+        "dc_network_dependencies",
+        "dc_accumulation",
+        "dc_cyclone_history",
+    ):
         return
     dcs = []
     try:
@@ -253,40 +262,29 @@ def fetch_datacenters():
                 continue
             if not (-90 <= lat <= 90 and -180 <= lng <= 180):
                 continue
-            dcs.append(
-                {
-                    "name": entry.get("name", "Unknown"),
-                    "company": entry.get("company", ""),
-                    "street": entry.get("street", ""),
-                    "city": entry.get("city", ""),
-                    "country": entry.get("country", ""),
-                    "zip": entry.get("zip", ""),
-                    "lat": lat,
-                    "lng": lng,
-                    # Operator classification
-                    "operator_type": entry.get("operator_type", ""),
-                    # Physical attributes
-                    "tier_rating": entry.get("tier_rating"),
-                    "mw_capacity": entry.get("mw_capacity"),
-                    "year_built": entry.get("year_built"),
-                    "cooling_type": entry.get("cooling_type", ""),
-                    # Risk scores
-                    "risk_score": entry.get("risk_score", 0),
-                    "nat_cat_score": entry.get("nat_cat_score", 0),
-                    "grid_score": entry.get("grid_score", 0),
-                    "concentration_score": entry.get("concentration_score", 0),
-                    # Natural hazard sub-scores
-                    "hazard_eq": entry.get("hazard_eq", 0),
-                    "hazard_flood": entry.get("hazard_flood", 0),
-                    "hazard_cyclone": entry.get("hazard_cyclone", 0),
-                    "hazard_fire": entry.get("hazard_fire", 0),
-                    # Power proximity
-                    "nearest_plant_km": entry.get("nearest_plant_km"),
-                    "nearest_plant_fuel": entry.get("nearest_plant_fuel", ""),
-                    # Density
-                    "dc_density_50km": entry.get("dc_density_50km", 0),
-                }
-            )
+            record = dict(entry)
+            record.setdefault("name", "Unknown")
+            record.setdefault("company", "")
+            record.setdefault("street", "")
+            record.setdefault("city", "")
+            record.setdefault("state", "")
+            record.setdefault("country", "")
+            record.setdefault("zip", "")
+            record["lat"] = lat
+            record["lng"] = lng
+            record.setdefault("operator_type", "")
+            record.setdefault("cooling_type", "")
+            record.setdefault("risk_score", 0)
+            record.setdefault("nat_cat_score", 0)
+            record.setdefault("grid_score", 0)
+            record.setdefault("concentration_score", 0)
+            record.setdefault("hazard_eq", 0)
+            record.setdefault("hazard_flood", 0)
+            record.setdefault("hazard_cyclone", 0)
+            record.setdefault("hazard_fire", 0)
+            record.setdefault("nearest_plant_fuel", "")
+            record.setdefault("dc_density_50km", 0)
+            dcs.append(record)
         logger.info(f"Data centers: {len(dcs)} geocoded locations loaded")
     except (
         ConnectionError,
@@ -298,10 +296,40 @@ def fetch_datacenters():
         json.JSONDecodeError,
     ) as e:
         logger.error(f"Error loading data centers: {e}")
+    # Only build DC risk overlays when the corresponding layer is actually toggled on.
+    # Building all five overlays unconditionally against 5 K DCs causes a memory spike
+    # on every slow-tier cycle even when no overlay is visible.
+    from services.dc_risk import (
+        build_dc_flood_zone_features,
+        build_dc_power_dependency_features,
+        build_dc_network_dependency_features,
+        build_dc_accumulation_cluster_features,
+        build_dc_cyclone_track_features,
+    )
+    overlay_keys: list[str] = []
+    overlay_data: dict = {}
+    if is_any_active("dc_flood"):
+        overlay_data["dc_flood_zones"] = build_dc_flood_zone_features(dcs)
+        overlay_keys.append("dc_flood_zones")
+    if is_any_active("dc_power_dependencies"):
+        overlay_data["dc_power_dependencies"] = build_dc_power_dependency_features(dcs)
+        overlay_keys.append("dc_power_dependencies")
+    if is_any_active("dc_network_dependencies"):
+        overlay_data["dc_network_dependencies"] = build_dc_network_dependency_features(dcs)
+        overlay_keys.append("dc_network_dependencies")
+    if is_any_active("dc_accumulation"):
+        overlay_data["dc_accumulation_clusters"] = build_dc_accumulation_cluster_features(dcs)
+        overlay_keys.append("dc_accumulation_clusters")
+    if is_any_active("dc_cyclone_history"):
+        overlay_data["dc_cyclone_tracks"] = build_dc_cyclone_track_features(dcs)
+        overlay_keys.append("dc_cyclone_tracks")
+
     with _data_lock:
         latest_data["datacenters"] = dcs
+        for key, value in overlay_data.items():
+            latest_data[key] = value
     if dcs:
-        _mark_fresh("datacenters")
+        _mark_fresh("datacenters", *overlay_keys)
 
 
 # ---------------------------------------------------------------------------

@@ -399,6 +399,7 @@ export interface DataCenter {
   // ── Layer 2: Hazard exposure (point-extracted, facility-level) ────────────
   // Populated by: scripts/enrich_l2_hazard.py
   jrc_flood_100yr_m?: number | null;         // JRC flood depth at 100yr return period (metres)
+  fema_flood_zone?: string | null;           // FEMA NFHL zone label (US only)
   usgs_pga_10pct_50yr?: number | null;       // USGS peak ground acceleration (g)
   ibtracs_track_density?: number | null;     // Tropical cyclone tracks per decade within 200 km
   wildfire_days_50km?: number | null;        // NASA FIRMS: active fire days/yr within 50 km
@@ -423,9 +424,15 @@ export interface DataCenter {
   substation_dist_km?: number | null;
   substation_cluster_id?: string | null;     // Cluster ID for shared-substation grouping
   substation_shared_count?: number | null;   // Facilities sharing the same substation
+  substation_lat?: number | null;
+  substation_lng?: number | null;
   ixp_ids?: string[] | null;                 // PeeringDB IXP IDs within 100 km
   nearest_ixp_km?: number | null;
   ixp_count_50km?: number | null;
+  nearest_ixp_id?: string | null;
+  nearest_ixp_name?: string | null;
+  nearest_ixp_lat?: number | null;
+  nearest_ixp_lng?: number | null;
   fibre_path_count?: number | null;          // Independent physical fibre paths to nearest IXP
   water_stress_idx?: number | null;          // FAO AQUASTAT 0–5 (5 = critically stressed)
   asn?: string | null;                       // Primary BGP ASN (PeeringDB)
@@ -437,6 +444,10 @@ export interface DataCenter {
   accumulation_flag?: boolean | null;        // True if substation cluster size ≥ 3
 
   // ── Layer 5: Composite risk index ────────────────────────────────────────
+  hazard_risk_score?: number | null;
+  power_risk_score?: number | null;
+  network_risk_score?: number | null;
+  systemic_risk_score?: number | null;
   risk_score?: number;                       // 0–100 weighted composite (all layers)
 }
 
@@ -796,6 +807,11 @@ export interface DashboardData {
   internet_outages?: InternetOutage[];
   firms_fires?: FireHotspot[];
   datacenters?: DataCenter[];
+  dc_flood_zones?: GeoJSON.Feature[];
+  dc_power_dependencies?: GeoJSON.Feature[];
+  dc_network_dependencies?: GeoJSON.Feature[];
+  dc_accumulation_clusters?: GeoJSON.Feature[];
+  dc_cyclone_tracks?: GeoJSON.Feature[];
   military_bases?: MilitaryBase[];
   power_plants?: PowerPlant[];
   viirs_change_nodes?: VIIRSChangeNode[];
@@ -843,6 +859,11 @@ export interface ActiveLayers {
   internet_outages: boolean;
   datacenters: boolean;
   hyperscalers: boolean;
+  dc_flood: boolean;
+  dc_power_dependencies: boolean;
+  dc_network_dependencies: boolean;
+  dc_accumulation: boolean;
+  dc_cyclone_history: boolean;
   military_bases: boolean;
   power_plants: boolean;
   power_plants_nuclear: boolean;

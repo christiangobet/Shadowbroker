@@ -45,6 +45,16 @@ import type { ShodanSearchMatch } from '@/types/shodan';
 type FC = GeoJSON.FeatureCollection | null;
 type InViewFilter = (lat: number, lng: number) => boolean;
 
+function normalizeOverlayFeatures(
+  features?: GeoJSON.Feature[] | GeoJSON.FeatureCollection | null,
+): FC {
+  if (!features) return null;
+  if (!Array.isArray(features)) {
+    return features.features.length ? features : null;
+  }
+  return features.length ? { type: 'FeatureCollection' as const, features } : null;
+}
+
 // ─── Shared Entity Lookup ───────────────────────────────────────────────────
 
 /** Find the currently selected entity across all data arrays. DRYs the polymorphic lookup. */
@@ -502,17 +512,77 @@ export function buildDataCentersGeoJSON(datacenters?: DataCenter[]): FC {
         city: dc.city || '',
         country: dc.country || '',
         zip: dc.zip || '',
+        fema_flood_zone: dc.fema_flood_zone ?? null,
         risk_score: dc.risk_score ?? 0,
+        hazard_risk_score: dc.hazard_risk_score ?? dc.nat_cat_score ?? null,
+        power_risk_score: dc.power_risk_score ?? dc.grid_score ?? null,
+        network_risk_score: dc.network_risk_score ?? dc.concentration_score ?? null,
+        systemic_risk_score: dc.systemic_risk_score ?? dc.systemic_importance_score ?? null,
         nat_cat_score: dc.nat_cat_score ?? 0,
         grid_score: dc.grid_score ?? 0,
         concentration_score: dc.concentration_score ?? 0,
         dc_density_50km: dc.dc_density_50km ?? 0,
         nearest_plant_km: dc.nearest_plant_km ?? null,
         nearest_plant_fuel: dc.nearest_plant_fuel ?? '',
+        jrc_flood_100yr_m: dc.jrc_flood_100yr_m ?? null,
+        heat_extreme_days: dc.heat_extreme_days ?? null,
+        usgs_pga_10pct_50yr: dc.usgs_pga_10pct_50yr ?? null,
+        ibtracs_track_density: dc.ibtracs_track_density ?? null,
+        wildfire_days_50km: dc.wildfire_days_50km ?? null,
+        substation_osm_id: dc.substation_osm_id ?? null,
+        substation_dist_km: dc.substation_dist_km ?? null,
+        substation_cluster_id: dc.substation_cluster_id ?? null,
+        substation_shared_count: dc.substation_shared_count ?? null,
+        substation_lat: dc.substation_lat ?? null,
+        substation_lng: dc.substation_lng ?? null,
+        ixp_ids: dc.ixp_ids ?? [],
+        nearest_ixp_km: dc.nearest_ixp_km ?? null,
+        ixp_count_50km: dc.ixp_count_50km ?? null,
+        nearest_ixp_id: dc.nearest_ixp_id ?? null,
+        nearest_ixp_name: dc.nearest_ixp_name ?? null,
+        nearest_ixp_lat: dc.nearest_ixp_lat ?? null,
+        nearest_ixp_lng: dc.nearest_ixp_lng ?? null,
+        fibre_path_count: dc.fibre_path_count ?? null,
+        water_stress_idx: dc.water_stress_idx ?? null,
+        asn: dc.asn ?? null,
+        systemic_importance_score: dc.systemic_importance_score ?? null,
+        accumulation_flag: dc.accumulation_flag ?? null,
+        hazard_eq: dc.hazard_eq ?? null,
+        hazard_flood: dc.hazard_flood ?? null,
+        hazard_cyclone: dc.hazard_cyclone ?? null,
+        hazard_fire: dc.hazard_fire ?? null,
       },
       geometry: { type: 'Point' as const, coordinates: [dc.lng, dc.lat] },
     })),
   };
+}
+
+export function buildDcFloodZonesGeoJSON(features?: GeoJSON.Feature[] | GeoJSON.FeatureCollection | null): FC {
+  return normalizeOverlayFeatures(features);
+}
+
+export function buildDcPowerDependenciesGeoJSON(
+  features?: GeoJSON.Feature[] | GeoJSON.FeatureCollection | null,
+): FC {
+  return normalizeOverlayFeatures(features);
+}
+
+export function buildDcNetworkDependenciesGeoJSON(
+  features?: GeoJSON.Feature[] | GeoJSON.FeatureCollection | null,
+): FC {
+  return normalizeOverlayFeatures(features);
+}
+
+export function buildDcAccumulationClustersGeoJSON(
+  features?: GeoJSON.Feature[] | GeoJSON.FeatureCollection | null,
+): FC {
+  return normalizeOverlayFeatures(features);
+}
+
+export function buildDcCycloneTracksGeoJSON(
+  features?: GeoJSON.Feature[] | GeoJSON.FeatureCollection | null,
+): FC {
+  return normalizeOverlayFeatures(features);
 }
 
 // ─── Hyperscalers ──────────────────────────────────────────────────────────

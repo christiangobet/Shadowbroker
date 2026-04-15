@@ -75,6 +75,11 @@ export interface LiveDataSlowResponse {
   internet_outages: InternetOutage[];
   firms_fires: FireHotspot[];
   datacenters: DataCenter[];
+  dc_flood_zones?: GeoJSON.Feature[];
+  dc_power_dependencies?: GeoJSON.Feature[];
+  dc_network_dependencies?: GeoJSON.Feature[];
+  dc_accumulation_clusters?: GeoJSON.Feature[];
+  dc_cyclone_tracks?: GeoJSON.Feature[];
   scanners: Scanner[];
   freshness: FreshnessMap;
 }

@@ -81,6 +81,11 @@ const FRESHNESS_MAP: Record<string, string> = {
   firms: 'firms_fires',
   internet_outages: 'internet_outages',
   datacenters: 'datacenters',
+  dc_flood: 'dc_flood_zones',
+  dc_power_dependencies: 'dc_power_dependencies',
+  dc_network_dependencies: 'dc_network_dependencies',
+  dc_accumulation: 'dc_accumulation_clusters',
+  dc_cyclone_history: 'dc_cyclone_tracks',
   power_plants: 'power_plants',
   sigint_meshtastic: 'sigint',
   sigint_aprs: 'sigint',
@@ -1747,29 +1752,66 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
               exit={{ height: 0, opacity: 0 }}
             >
               <div className="flex flex-col gap-3 p-4">
-                {/* Hyperscalers */}
-                {(() => {
-                  const active = activeLayers['hyperscalers' as keyof ActiveLayers] || false;
+                {[
+                  {
+                    id: 'hyperscalers' as keyof ActiveLayers,
+                    name: 'Hyperscalers',
+                    desc: 'DC Map · AWS / Azure / GCP / Oracle',
+                    icon: Server,
+                  },
+                  {
+                    id: 'dc_flood' as keyof ActiveLayers,
+                    name: 'Flood Exposure',
+                    desc: 'FEMA + JRC screened flood-exposed facilities',
+                    icon: CloudLightning,
+                  },
+                  {
+                    id: 'dc_power_dependencies' as keyof ActiveLayers,
+                    name: 'Power Dependency',
+                    desc: 'Shared substations and single-node grid ties',
+                    icon: Zap,
+                  },
+                  {
+                    id: 'dc_network_dependencies' as keyof ActiveLayers,
+                    name: 'Network Dependency',
+                    desc: 'IXP / ASN concentration and fibre chokepoints',
+                    icon: Wifi,
+                  },
+                  {
+                    id: 'dc_accumulation' as keyof ActiveLayers,
+                    name: 'Accumulation Clusters',
+                    desc: 'Cluster halos for silently shared infrastructure',
+                    icon: Shield,
+                  },
+                  {
+                    id: 'dc_cyclone_history' as keyof ActiveLayers,
+                    name: 'Cyclone History',
+                    desc: 'Historic IBTrACS tracks near data center corridors',
+                    icon: Wind,
+                  },
+                ].map(({ id, name, desc, icon: Icon }) => {
+                  const active = activeLayers[id] || false;
                   return (
                     <div
+                      key={id}
                       className="flex items-start justify-between group cursor-pointer"
                       onClick={() =>
                         setActiveLayers((prev: ActiveLayers) => ({
                           ...prev,
-                          hyperscalers: !active,
+                          [id]: !active,
                         }))
                       }
                     >
                       <div className="flex gap-3">
                         <div className={`mt-0.5 transition-colors ${active ? 'text-amber-400' : 'text-gray-600 group-hover:text-gray-400'}`}>
-                          <Server size={14} strokeWidth={1.5} />
+                          <Icon size={14} strokeWidth={1.5} />
                         </div>
                         <div className="flex flex-col">
                           <span className={`text-[12px] font-medium tracking-wide ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
-                            Hyperscalers
+                            {name}
                           </span>
                           <span className="text-[8px] text-[var(--text-muted)] font-mono tracking-wider mt-0.5">
-                            DC Map · AWS / Azure / GCP / Oracle
+                            {desc}
                           </span>
                         </div>
                       </div>
@@ -1784,7 +1826,7 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
                       </div>
                     </div>
                   );
-                })()}
+                })}
 
                 {/* DC Risk Score legend */}
                 <div className="border-t border-amber-900/30 pt-3 mt-1">
@@ -1793,9 +1835,10 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
                   </span>
                   <div className="flex flex-col gap-1.5">
                     {[
-                      { label: 'NAT CAT', desc: 'INFORM 2023 natural hazard score' },
-                      { label: 'GRID',    desc: 'Grid reliability / outage exposure' },
-                      { label: 'CONC',    desc: 'Hyperscaler geographic concentration' },
+                      { label: 'HAZARD', desc: 'Flood, quake, cyclone, wildfire and heat load' },
+                      { label: 'POWER', desc: 'Shared substation and grid fragility pressure' },
+                      { label: 'NET', desc: 'IXP, ASN and fibre concentration risk' },
+                      { label: 'SYS', desc: 'Clustered dependency and systemic importance' },
                     ].map(({ label, desc }) => (
                       <div key={label} className="flex items-start gap-2">
                         <span className="text-[8px] font-mono text-amber-600/70 w-10 flex-shrink-0 mt-0.5">
@@ -1807,6 +1850,15 @@ const WorldviewLeftPanel = React.memo(function WorldviewLeftPanel({
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div className="border-t border-amber-900/20 pt-3">
+                  <span className="text-[8px] font-mono tracking-widest text-amber-700/60 block mb-1">
+                    SOURCES
+                  </span>
+                  <span className="text-[8px] text-[var(--text-muted)] font-mono leading-tight block">
+                    OSM / Overpass (ODbL), FEMA NFHL, USGS, NASA FIRMS, NOAA IBTrACS, PeeringDB, RIPEstat
+                  </span>
                 </div>
               </div>
             </motion.div>

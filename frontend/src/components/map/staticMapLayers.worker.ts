@@ -3,6 +3,11 @@
 import {
   buildAirQualityGeoJSON,
   buildCctvGeoJSON,
+  buildDcAccumulationClustersGeoJSON,
+  buildDcCycloneTracksGeoJSON,
+  buildDcFloodZonesGeoJSON,
+  buildDcNetworkDependenciesGeoJSON,
+  buildDcPowerDependenciesGeoJSON,
   buildDataCentersGeoJSON,
   buildFirmsGeoJSON,
   buildFishingActivityGeoJSON,
@@ -51,6 +56,11 @@ export type StaticMapLayersDataPayload = {
   firmsFires?: FireHotspot[];
   internetOutages?: InternetOutage[];
   datacenters?: DataCenter[];
+  dcFloodZones?: GeoJSON.Feature[];
+  dcPowerDependencies?: GeoJSON.Feature[];
+  dcNetworkDependencies?: GeoJSON.Feature[];
+  dcAccumulationClusters?: GeoJSON.Feature[];
+  dcCycloneTracks?: GeoJSON.Feature[];
   powerPlants?: PowerPlant[];
   viirsChangeNodes?: VIIRSChangeNode[];
   militaryBases?: MilitaryBase[];
@@ -73,6 +83,11 @@ export type StaticMapLayersBuildPayload = {
     firms: boolean;
     internet_outages: boolean;
     datacenters: boolean;
+    dc_flood: boolean;
+    dc_power_dependencies: boolean;
+    dc_network_dependencies: boolean;
+    dc_accumulation: boolean;
+    dc_cyclone_history: boolean;
     power_plants: boolean;
     viirs_nightlights: boolean;
     military_bases: boolean;
@@ -93,6 +108,11 @@ export type StaticMapLayersResult = {
   firmsGeoJSON: FC;
   internetOutagesGeoJSON: FC;
   dataCentersGeoJSON: FC;
+  dcFloodZonesGeoJSON: FC;
+  dcPowerDependenciesGeoJSON: FC;
+  dcNetworkDependenciesGeoJSON: FC;
+  dcAccumulationClustersGeoJSON: FC;
+  dcCycloneTracksGeoJSON: FC;
   powerPlantsGeoJSON: FC;
   viirsChangeNodesGeoJSON: FC;
   militaryBasesGeoJSON: FC;
@@ -151,6 +171,21 @@ function buildStaticLayers(payload: StaticMapLayersBuildPayload): StaticMapLayer
       : null,
     dataCentersGeoJSON: payload.activeLayers.datacenters
       ? buildDataCentersGeoJSON(staticData.datacenters)
+      : null,
+    dcFloodZonesGeoJSON: payload.activeLayers.dc_flood
+      ? buildDcFloodZonesGeoJSON(staticData.dcFloodZones)
+      : null,
+    dcPowerDependenciesGeoJSON: payload.activeLayers.dc_power_dependencies
+      ? buildDcPowerDependenciesGeoJSON(staticData.dcPowerDependencies)
+      : null,
+    dcNetworkDependenciesGeoJSON: payload.activeLayers.dc_network_dependencies
+      ? buildDcNetworkDependenciesGeoJSON(staticData.dcNetworkDependencies)
+      : null,
+    dcAccumulationClustersGeoJSON: payload.activeLayers.dc_accumulation
+      ? buildDcAccumulationClustersGeoJSON(staticData.dcAccumulationClusters)
+      : null,
+    dcCycloneTracksGeoJSON: payload.activeLayers.dc_cyclone_history
+      ? buildDcCycloneTracksGeoJSON(staticData.dcCycloneTracks)
       : null,
     powerPlantsGeoJSON: payload.activeLayers.power_plants
       ? buildPowerPlantsGeoJSON(staticData.powerPlants)

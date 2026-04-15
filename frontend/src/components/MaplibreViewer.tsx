@@ -1207,6 +1207,19 @@ const MaplibreViewer = ({
   const staticFirmsFires = activeLayers.firms ? data?.firms_fires : undefined;
   const staticInternetOutages = activeLayers.internet_outages ? data?.internet_outages : undefined;
   const staticDatacenters = activeLayers.datacenters ? data?.datacenters : undefined;
+  const staticDcFloodZones = activeLayers.dc_flood ? data?.dc_flood_zones : undefined;
+  const staticDcPowerDependencies = activeLayers.dc_power_dependencies
+    ? data?.dc_power_dependencies
+    : undefined;
+  const staticDcNetworkDependencies = activeLayers.dc_network_dependencies
+    ? data?.dc_network_dependencies
+    : undefined;
+  const staticDcAccumulationClusters = activeLayers.dc_accumulation
+    ? data?.dc_accumulation_clusters
+    : undefined;
+  const staticDcCycloneTracks = activeLayers.dc_cyclone_history
+    ? data?.dc_cyclone_tracks
+    : undefined;
   // Generic clustered power-plant layer: only active when power_plants is on AND no typed
   // sub-layers are on. When typed sub-layers are on, the per-fuel-group typed source takes
   // over with coloured icons, so suppress the generic layer to avoid double-rendering.
@@ -1299,6 +1312,11 @@ const MaplibreViewer = ({
       firmsFires: staticFirmsFires,
       internetOutages: staticInternetOutages,
       datacenters: staticDatacenters,
+      dcFloodZones: staticDcFloodZones,
+      dcPowerDependencies: staticDcPowerDependencies,
+      dcNetworkDependencies: staticDcNetworkDependencies,
+      dcAccumulationClusters: staticDcAccumulationClusters,
+      dcCycloneTracks: staticDcCycloneTracks,
       powerPlants: staticPowerPlants,
       viirsChangeNodes: staticViirsChangeNodes,
       militaryBases: staticMilitaryBases,
@@ -1318,6 +1336,11 @@ const MaplibreViewer = ({
       staticFirmsFires,
       staticInternetOutages,
       staticDatacenters,
+      staticDcFloodZones,
+      staticDcPowerDependencies,
+      staticDcNetworkDependencies,
+      staticDcAccumulationClusters,
+      staticDcCycloneTracks,
       staticPowerPlants,
       staticViirsChangeNodes,
       staticMilitaryBases,
@@ -1339,6 +1362,11 @@ const MaplibreViewer = ({
         firms: activeLayers.firms,
         internet_outages: activeLayers.internet_outages,
         datacenters: activeLayers.datacenters,
+        dc_flood: activeLayers.dc_flood,
+        dc_power_dependencies: activeLayers.dc_power_dependencies,
+        dc_network_dependencies: activeLayers.dc_network_dependencies,
+        dc_accumulation: activeLayers.dc_accumulation,
+        dc_cyclone_history: activeLayers.dc_cyclone_history,
         power_plants: activeLayers.power_plants,
         viirs_nightlights: activeLayers.viirs_nightlights,
         military_bases: activeLayers.military_bases,
@@ -1359,6 +1387,11 @@ const MaplibreViewer = ({
       activeLayers.firms,
       activeLayers.internet_outages,
       activeLayers.datacenters,
+      activeLayers.dc_flood,
+      activeLayers.dc_power_dependencies,
+      activeLayers.dc_network_dependencies,
+      activeLayers.dc_accumulation,
+      activeLayers.dc_cyclone_history,
       activeLayers.power_plants,
       activeLayers.viirs_nightlights,
       activeLayers.military_bases,
@@ -1390,6 +1423,11 @@ const MaplibreViewer = ({
     firmsGeoJSON,
     internetOutagesGeoJSON,
     dataCentersGeoJSON,
+    dcFloodZonesGeoJSON,
+    dcPowerDependenciesGeoJSON,
+    dcNetworkDependenciesGeoJSON,
+    dcAccumulationClustersGeoJSON,
+    dcCycloneTracksGeoJSON,
     powerPlantsGeoJSON,
     viirsChangeNodesGeoJSON,
     militaryBasesGeoJSON,
@@ -1625,6 +1663,11 @@ const MaplibreViewer = ({
     scannerGeoJSON && 'scanner-layer',
     internetOutagesGeoJSON && 'internet-outages-layer',
     dataCentersGeoJSON && 'datacenters-layer',
+    dcFloodZonesGeoJSON && 'dc-flood-zones-layer',
+    dcPowerDependenciesGeoJSON && 'dc-power-dependencies-layer',
+    dcNetworkDependenciesGeoJSON && 'dc-network-dependencies-layer',
+    dcAccumulationClustersGeoJSON && 'dc-accumulation-clusters-layer',
+    dcCycloneTracksGeoJSON && 'dc-cyclone-tracks-layer',
     powerPlantsGeoJSON && 'power-plants-layer',
     hyperscalersGeoJSON && 'hyperscalers-circle',
     powerPlantsTypedGeoJSON && 'power-plants-nuclear',
@@ -1670,6 +1713,11 @@ const MaplibreViewer = ({
   useImperativeSource(mapForHook, 'firms-fires', firmsGeoJSON, 900);
   useImperativeSource(mapForHook, 'internet-outages', internetOutagesGeoJSON, 100);
   useImperativeSource(mapForHook, 'datacenters', dataCentersGeoJSON, 120);
+  useImperativeSource(mapForHook, 'dc-flood-zones', dcFloodZonesGeoJSON, 120);
+  useImperativeSource(mapForHook, 'dc-power-dependencies', dcPowerDependenciesGeoJSON, 120);
+  useImperativeSource(mapForHook, 'dc-network-dependencies', dcNetworkDependenciesGeoJSON, 120);
+  useImperativeSource(mapForHook, 'dc-accumulation-clusters', dcAccumulationClustersGeoJSON, 120);
+  useImperativeSource(mapForHook, 'dc-cyclone-tracks', dcCycloneTracksGeoJSON, 120);
   useImperativeSource(mapForHook, 'power-plants', powerPlantsGeoJSON, 140);
   useImperativeSource(mapForHook, 'viirs-change-nodes', viirsChangeNodesGeoJSON, 120);
   useImperativeSource(mapForHook, 'military-bases', militaryBasesGeoJSON, 75);
@@ -2686,6 +2734,82 @@ const MaplibreViewer = ({
             }}
           />
         </Source>
+
+        {dcFloodZonesGeoJSON && (
+          <Source id="dc-flood-zones" type="geojson" data={EMPTY_FC}>
+            <Layer
+              id="dc-flood-zones-layer"
+              type="circle"
+              paint={{
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 5, 6, 9, 10, 14],
+                'circle-color': '#38bdf8',
+                'circle-opacity': 0.18,
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#7dd3fc',
+              }}
+            />
+          </Source>
+        )}
+
+        {dcPowerDependenciesGeoJSON && (
+          <Source id="dc-power-dependencies" type="geojson" data={EMPTY_FC}>
+            <Layer
+              id="dc-power-dependencies-layer"
+              type="line"
+              paint={{
+                'line-color': '#f59e0b',
+                'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1, 6, 2, 10, 3],
+                'line-opacity': 0.75,
+                'line-dasharray': [2, 1.5],
+              }}
+            />
+          </Source>
+        )}
+
+        {dcNetworkDependenciesGeoJSON && (
+          <Source id="dc-network-dependencies" type="geojson" data={EMPTY_FC}>
+            <Layer
+              id="dc-network-dependencies-layer"
+              type="line"
+              paint={{
+                'line-color': '#22c55e',
+                'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1, 6, 2, 10, 3],
+                'line-opacity': 0.8,
+                'line-dasharray': [1, 1.5],
+              }}
+            />
+          </Source>
+        )}
+
+        {dcAccumulationClustersGeoJSON && (
+          <Source id="dc-accumulation-clusters" type="geojson" data={EMPTY_FC}>
+            <Layer
+              id="dc-accumulation-clusters-layer"
+              type="circle"
+              paint={{
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 12, 6, 20, 10, 34],
+                'circle-color': '#ef4444',
+                'circle-opacity': 0.08,
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#f87171',
+              }}
+            />
+          </Source>
+        )}
+
+        {dcCycloneTracksGeoJSON && (
+          <Source id="dc-cyclone-tracks" type="geojson" data={EMPTY_FC}>
+            <Layer
+              id="dc-cyclone-tracks-layer"
+              type="line"
+              paint={{
+                'line-color': '#06b6d4',
+                'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1, 6, 2, 10, 2.5],
+                'line-opacity': 0.65,
+              }}
+            />
+          </Source>
+        )}
 
         {/* Power Plant positions */}
         {powerPlantsGeoJSON && (
@@ -4853,6 +4977,186 @@ const MaplibreViewer = ({
                       Country: <span className="text-white">{dc.country}</span>
                     </div>
                   )}
+                  {/* Physical asset metadata */}
+                  {(dc.operator_type || dc.tier_rating != null || dc.mw_capacity != null) && (
+                    <div className="map-popup-row flex gap-2 flex-wrap">
+                      {dc.operator_type && (
+                        <span className="text-[10px] px-1 py-0.5 bg-violet-800/40 rounded text-violet-300 uppercase tracking-wide">
+                          {dc.operator_type}
+                        </span>
+                      )}
+                      {dc.tier_rating != null && (
+                        <span className="text-[10px] px-1 py-0.5 bg-violet-800/40 rounded text-violet-300">
+                          Tier {dc.tier_rating}
+                        </span>
+                      )}
+                      {dc.mw_capacity != null && (
+                        <span className="text-[10px] px-1 py-0.5 bg-violet-800/40 rounded text-violet-300">
+                          {dc.mw_capacity} MW
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Composite risk score */}
+                  {dc.risk_score != null && (
+                    <div className="mt-1.5 px-2 py-1 bg-violet-900/30 border border-violet-400/20 rounded">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] text-violet-400 tracking-wider uppercase">Risk Score</span>
+                        <span className={`text-sm font-bold font-mono ${dc.risk_score >= 70 ? 'text-red-400' : dc.risk_score >= 40 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {Math.round(dc.risk_score)}<span className="text-[9px] text-violet-500">/100</span>
+                        </span>
+                      </div>
+                      {/* Sub-scores */}
+                      <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-[9px]">
+                        {(dc.hazard_risk_score ?? dc.nat_cat_score) != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${(dc.hazard_risk_score ?? dc.nat_cat_score ?? 0) >= 70 ? 'text-red-400' : (dc.hazard_risk_score ?? dc.nat_cat_score ?? 0) >= 40 ? 'text-amber-400' : 'text-green-400'}`}>{Math.round(dc.hazard_risk_score ?? dc.nat_cat_score ?? 0)}</span>
+                            <span className="text-violet-500">Haz.</span>
+                          </div>
+                        )}
+                        {(dc.power_risk_score ?? dc.grid_score) != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${(dc.power_risk_score ?? dc.grid_score ?? 0) >= 70 ? 'text-red-400' : (dc.power_risk_score ?? dc.grid_score ?? 0) >= 40 ? 'text-amber-400' : 'text-green-400'}`}>{Math.round(dc.power_risk_score ?? dc.grid_score ?? 0)}</span>
+                            <span className="text-violet-500">Power</span>
+                          </div>
+                        )}
+                        {(dc.network_risk_score ?? dc.concentration_score) != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${(dc.network_risk_score ?? dc.concentration_score ?? 0) >= 70 ? 'text-red-400' : (dc.network_risk_score ?? dc.concentration_score ?? 0) >= 40 ? 'text-amber-400' : 'text-green-400'}`}>{Math.round(dc.network_risk_score ?? dc.concentration_score ?? 0)}</span>
+                            <span className="text-violet-500">Net.</span>
+                          </div>
+                        )}
+                        {(dc.systemic_risk_score ?? dc.systemic_importance_score) != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${(dc.systemic_risk_score ?? dc.systemic_importance_score ?? 0) >= 70 ? 'text-red-400' : (dc.systemic_risk_score ?? dc.systemic_importance_score ?? 0) >= 40 ? 'text-amber-400' : 'text-green-400'}`}>{Math.round(dc.systemic_risk_score ?? dc.systemic_importance_score ?? 0)}</span>
+                            <span className="text-violet-500">Sys.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hazard breakdown */}
+                  {(dc.hazard_eq != null || dc.hazard_flood != null || dc.hazard_cyclone != null || dc.hazard_fire != null) && (
+                    <div className="mt-1 px-2 py-1 bg-violet-900/20 border border-violet-400/15 rounded">
+                      <div className="text-[9px] text-violet-500 mb-0.5 uppercase tracking-wider">Hazard Exposure</div>
+                      <div className="grid grid-cols-4 gap-x-1 text-[9px]">
+                        {dc.hazard_eq != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${dc.hazard_eq >= 70 ? 'text-red-400' : dc.hazard_eq >= 40 ? 'text-amber-400' : 'text-slate-400'}`}>{Math.round(dc.hazard_eq)}</span>
+                            <span className="text-violet-600">EQ</span>
+                          </div>
+                        )}
+                        {dc.hazard_flood != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${dc.hazard_flood >= 70 ? 'text-red-400' : dc.hazard_flood >= 40 ? 'text-amber-400' : 'text-slate-400'}`}>{Math.round(dc.hazard_flood)}</span>
+                            <span className="text-violet-600">Flood</span>
+                          </div>
+                        )}
+                        {dc.hazard_cyclone != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${dc.hazard_cyclone >= 70 ? 'text-red-400' : dc.hazard_cyclone >= 40 ? 'text-amber-400' : 'text-slate-400'}`}>{Math.round(dc.hazard_cyclone)}</span>
+                            <span className="text-violet-600">Cyc.</span>
+                          </div>
+                        )}
+                        {dc.hazard_fire != null && (
+                          <div className="flex flex-col items-center">
+                            <span className={`font-mono font-semibold ${dc.hazard_fire >= 70 ? 'text-red-400' : dc.hazard_fire >= 40 ? 'text-amber-400' : 'text-slate-400'}`}>{Math.round(dc.hazard_fire)}</span>
+                            <span className="text-violet-600">Fire</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {(dc.fema_flood_zone || dc.jrc_flood_100yr_m != null || dc.heat_extreme_days != null || dc.usgs_pga_10pct_50yr != null || dc.ibtracs_track_density != null || dc.wildfire_days_50km != null) && (
+                    <div className="mt-1 px-2 py-1 bg-sky-950/20 border border-sky-400/15 rounded">
+                      <div className="text-[9px] text-sky-400 mb-0.5 uppercase tracking-wider">Raw Hazard Inputs</div>
+                      {dc.fema_flood_zone && (
+                        <div className="map-popup-row">
+                          FEMA Zone: <span className="text-sky-200">{dc.fema_flood_zone}</span>
+                        </div>
+                      )}
+                      {dc.jrc_flood_100yr_m != null && (
+                        <div className="map-popup-row">
+                          JRC Flood 100y: <span className="text-sky-200">{dc.jrc_flood_100yr_m.toFixed(2)} m</span>
+                        </div>
+                      )}
+                      {dc.heat_extreme_days != null && (
+                        <div className="map-popup-row">
+                          Heat Extreme Days: <span className="text-sky-200">{Math.round(dc.heat_extreme_days)} / yr</span>
+                        </div>
+                      )}
+                      {dc.usgs_pga_10pct_50yr != null && (
+                        <div className="map-popup-row">
+                          USGS PGA: <span className="text-sky-200">{dc.usgs_pga_10pct_50yr.toFixed(2)} g</span>
+                        </div>
+                      )}
+                      {dc.ibtracs_track_density != null && (
+                        <div className="map-popup-row">
+                          Cyclone Density: <span className="text-sky-200">{dc.ibtracs_track_density.toFixed(1)} / decade</span>
+                        </div>
+                      )}
+                      {dc.wildfire_days_50km != null && (
+                        <div className="map-popup-row">
+                          Wildfire Days 50km: <span className="text-sky-200">{Math.round(dc.wildfire_days_50km)} / yr</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {(dc.substation_osm_id || dc.ixp_ids?.length || dc.asn || dc.systemic_importance_score != null || dc.accumulation_flag != null) && (
+                    <div className="mt-1 px-2 py-1 bg-amber-950/20 border border-amber-400/15 rounded">
+                      <div className="text-[9px] text-amber-400 mb-0.5 uppercase tracking-wider">Dependency Graph</div>
+                      {dc.substation_osm_id && (
+                        <div className="map-popup-row">
+                          Substation: <span className="text-amber-200">{dc.substation_osm_id}</span>
+                          {dc.substation_dist_km != null ? <span className="text-amber-300/80"> · {dc.substation_dist_km.toFixed(1)} km</span> : null}
+                          {dc.substation_shared_count != null ? <span className="text-amber-300/80"> · shared by {dc.substation_shared_count}</span> : null}
+                        </div>
+                      )}
+                      {(dc.nearest_ixp_name || dc.ixp_ids?.length) && (
+                        <div className="map-popup-row">
+                          IXP: <span className="text-amber-200">{dc.nearest_ixp_name || dc.ixp_ids?.[0] || 'Linked'}</span>
+                          {dc.nearest_ixp_km != null ? <span className="text-amber-300/80"> · {dc.nearest_ixp_km.toFixed(1)} km</span> : null}
+                          {dc.ixp_count_50km != null ? <span className="text-amber-300/80"> · {dc.ixp_count_50km} in 50 km</span> : null}
+                        </div>
+                      )}
+                      {dc.ixp_ids?.length ? (
+                        <div className="map-popup-row">
+                          IXP IDs: <span className="text-amber-200">{dc.ixp_ids.join(', ')}</span>
+                        </div>
+                      ) : null}
+                      {dc.asn && (
+                        <div className="map-popup-row">
+                          ASN: <span className="text-amber-200">{dc.asn}</span>
+                        </div>
+                      )}
+                      {dc.systemic_importance_score != null && (
+                        <div className="map-popup-row">
+                          Systemic Importance: <span className="text-amber-200">{Math.round(dc.systemic_importance_score)}</span>
+                        </div>
+                      )}
+                      {dc.accumulation_flag != null && (
+                        <div className="map-popup-row">
+                          Accumulation Flag: <span className={dc.accumulation_flag ? 'text-red-300' : 'text-green-300'}>{dc.accumulation_flag ? 'Clustered' : 'Isolated'}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Power proximity */}
+                  {(dc.nearest_plant_km != null || dc.nearest_plant_fuel) && (
+                    <div className="map-popup-row">
+                      Nearest Plant:{' '}
+                      <span className="text-[#c4b5fd]">
+                        {dc.nearest_plant_km != null ? `${dc.nearest_plant_km.toFixed(1)} km` : '—'}
+                        {dc.nearest_plant_fuel ? ` (${dc.nearest_plant_fuel})` : ''}
+                      </span>
+                    </div>
+                  )}
+
                   {outagesInCountry.length > 0 && (
                     <div className="mt-1.5 px-2 py-1 bg-red-500/15 border border-red-400/40 rounded text-[10px] text-[#ff6b6b]">
                       OUTAGE IN REGION —{' '}

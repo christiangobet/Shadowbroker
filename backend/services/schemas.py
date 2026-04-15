@@ -62,6 +62,7 @@ class DataCenterRecord(BaseModel):
     ibtracs_track_density: Optional[float] = None  # Tropical cyclone tracks/decade within 200 km
     wildfire_days_50km: Optional[float] = None     # NASA FIRMS: active fire days/yr within 50 km
     heat_extreme_days: Optional[float] = None      # ERA5: days/yr above 35°C WBGT
+    fema_flood_zone: Optional[str] = None          # FEMA NFHL zone code (US sites)
     # Normalised 0–100 hazard scores (legacy INFORM + updated from raw values)
     hazard_eq: int = 0
     hazard_flood: int = 0
@@ -82,9 +83,15 @@ class DataCenterRecord(BaseModel):
     substation_dist_km: Optional[float] = None
     substation_cluster_id: Optional[str] = None    # Shared-substation cluster key
     substation_shared_count: Optional[int] = None  # Facilities on the same substation
+    substation_lat: Optional[float] = None
+    substation_lng: Optional[float] = None
     ixp_ids: Optional[List[str]] = None            # PeeringDB IXP IDs within 100 km
     nearest_ixp_km: Optional[float] = None
     ixp_count_50km: Optional[int] = None
+    nearest_ixp_id: Optional[str] = None
+    nearest_ixp_name: Optional[str] = None
+    nearest_ixp_lat: Optional[float] = None
+    nearest_ixp_lng: Optional[float] = None
     fibre_path_count: Optional[int] = None         # Independent physical fibre paths
     water_stress_idx: Optional[float] = None       # FAO AQUASTAT 0–5
     asn: Optional[str] = None                      # Primary BGP ASN
@@ -96,4 +103,8 @@ class DataCenterRecord(BaseModel):
     accumulation_flag: Optional[bool] = None        # True if cluster size ≥ 3
 
     # ── Layer 5: Composite risk index ────────────────────────────────────
+    hazard_risk_score: Optional[float] = None
+    power_risk_score: Optional[float] = None
+    network_risk_score: Optional[float] = None
+    systemic_risk_score: Optional[float] = None
     risk_score: float = 0.0

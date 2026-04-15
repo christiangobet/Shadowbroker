@@ -38,6 +38,11 @@ class DashboardData(TypedDict, total=False):
     internet_outages: List[Dict[str, Any]]
     firms_fires: List[Dict[str, Any]]
     datacenters: List[Dict[str, Any]]
+    dc_flood_zones: List[Dict[str, Any]]
+    dc_power_dependencies: List[Dict[str, Any]]
+    dc_network_dependencies: List[Dict[str, Any]]
+    dc_accumulation_clusters: List[Dict[str, Any]]
+    dc_cyclone_tracks: List[Dict[str, Any]]
     airports: List[Dict[str, Any]]
     gps_jamming: List[Dict[str, Any]]
     satellites: List[Dict[str, Any]]
@@ -85,6 +90,11 @@ latest_data: DashboardData = {
     "internet_outages": [],
     "firms_fires": [],
     "datacenters": [],
+    "dc_flood_zones": [],
+    "dc_power_dependencies": [],
+    "dc_network_dependencies": [],
+    "dc_accumulation_clusters": [],
+    "dc_cyclone_tracks": [],
     "military_bases": [],
     "prediction_markets": [],
     "sigint": [],
@@ -221,6 +231,11 @@ active_layers: dict[str, bool] = {
     "firms": True,
     "internet_outages": True,
     "datacenters": True,
+    "dc_flood": False,
+    "dc_power_dependencies": False,
+    "dc_network_dependencies": False,
+    "dc_accumulation": False,
+    "dc_cyclone_history": False,
     "military_bases": True,
     "sigint_meshtastic": True,
     "sigint_aprs": True,
