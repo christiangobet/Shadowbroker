@@ -3,13 +3,20 @@ import logging
 import base64
 import urllib.parse
 import re
-from playwright.sync_api import sync_playwright
-from playwright_stealth import stealth_sync
 
 logger = logging.getLogger(__name__)
 
 
 def fetch_liveuamap():
+    # Playwright/Chromium scraper disabled — chromium process was the primary OOM
+    # cause on Railway (300-500 MB). Liveuamap data is non-critical and was already
+    # failing. Re-enable once a lightweight alternative is implemented.
+    logger.info("Liveuamap scraper disabled (memory optimisation).")
+    return []
+    # --- original playwright implementation below (preserved for reference) ---
+    import importlib
+    sync_playwright = importlib.import_module("playwright.sync_api").sync_playwright
+    stealth_sync = importlib.import_module("playwright_stealth").stealth_sync
     logger.info("Starting Liveuamap scraper with Playwright Stealth...")
 
     regions = [
